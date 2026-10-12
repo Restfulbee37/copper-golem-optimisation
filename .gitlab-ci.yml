@@ -3,6 +3,8 @@
 # Branches and merge requests: build the mod and keep the jar as a job artifact.
 # Tags v<mod version>+<minecraft version>: also publish the jar to the package
 # registry and create a GitLab Release from the matching CHANGELOG.md section.
+# Release asset paths can't contain '+', so assets use fixed names, which also
+# gives a stable link: /-/releases/permalink/latest/downloads/copper_golem_mod.jar
 
 workflow:
   rules:
@@ -104,6 +106,7 @@ release:
         --rawfile description release_notes.md \
         --arg milestone "$MILESTONE" \
         --arg jar "$JAR" \
+        --arg pkg "$PACKAGE_NAME" \
         --arg jar_url "${PACKAGE_URL}/${ENC_JAR}" \
         --arg sha_url "${PACKAGE_URL}/${ENC_JAR}.sha256" \
         '{
@@ -112,13 +115,27 @@ release:
           description: $description,
           milestones: [$milestone],
           assets: { links: [
-            { name: $jar, url: $jar_url, link_type: "package", direct_asset_path: ("/" + $jar) },
-            { name: ($jar + ".sha256"), url: $sha_url, link_type: "other", direct_asset_path: ("/" + $jar + ".sha256") }
+            { name: $jar, url: $jar_url, link_type: "package", direct_asset_path: ("/" + $pkg + ".jar") },
+            { name: ($jar + ".sha256"), url: $sha_url, link_type: "other", direct_asset_path: ("/" + $pkg + ".jar.sha256") }
           ] }
         }' > release.json
+    # Re-running the job after a partial failure must not fail on an existing release.
     - |
-      curl --fail-with-body --silent --show-error \
+      ENC_TAG="$(printf '%s' "$CI_COMMIT_TAG" | sed 's/+/%2B/g')"
+      if curl --fail --silent --output /dev/null --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases/${ENC_TAG}"; then
+        echo "Release for $CI_COMMIT_TAG already exists; nothing to do."
+        exit 0
+      fi
+    - |
+      status="$(curl --silent --show-error --output response.json --write-out '%{http_code}' \
         --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
         --header "Content-Type: application/json" \
         --data @release.json \
-        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases" | jq '{name, tag_name, _links}'
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases")"
+      if [ "$status" != "201" ]; then
+        echo "Creating the release failed with HTTP $status:"
+        cat response.json
+        exit 1
+      fi
+      jq '{name, tag_name, url: ._links.self}' response.json
