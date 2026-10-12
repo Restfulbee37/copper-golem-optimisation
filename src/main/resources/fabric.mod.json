@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "copper_golem_mod",
+  "version": "${version}",
+  "name": "CopperGolemMod",
+  "description": "Reduces the server tick cost of copper golems, especially in dense sorting farms, without changing how they sort.",
+  "authors": [
+    "RestfulBee"
+  ],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.restfulbee.coppergolemmod.CopperGolemMod"
+    ]
+  },
+  "mixins": [
+    "copper_golem_mod.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}",
+    "java": ">=21"
+  }
+}

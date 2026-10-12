@@ -1,0 +1,24 @@
+# Gradle / IDE output
+.gradle/
+build/
+out/
+run/
+*.class
+.idea/
+*.iml
+.vscode/
+
+# Local tool settings
+.claude/
+
+# Logs and local sync client files
+logs/
+*.log
+*.log.full
+*.db
+*.db-shm
+*.db-wal
+
+# Built jars, except the Gradle wrapper
+*.jar
+!gradle/wrapper/gradle-wrapper.jar

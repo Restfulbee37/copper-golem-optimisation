@@ -1,0 +1,124 @@
+# CI/CD for CopperGolemMod
+#
+# Branches and merge requests: build the mod and keep the jar as a job artifact.
+# Tags v<mod version>+<minecraft version>: also publish the jar to the package
+# registry and create a GitLab Release from the matching CHANGELOG.md section.
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Avoid duplicate branch + MR pipelines while an MR is open.
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+stages:
+  - build
+  - publish
+
+variables:
+  PACKAGE_NAME: copper_golem_mod
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle-home"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+build:
+  stage: build
+  image: eclipse-temurin:21-jdk
+  interruptible: true
+  cache:
+    key:
+      files:
+        - gradle.properties
+        - gradle/wrapper/gradle-wrapper.properties
+    paths:
+      - .gradle-home/caches/
+      - .gradle-home/wrapper/
+      - .gradle/loom-cache/
+  script:
+    - chmod +x gradlew
+    - ./gradlew build --console=plain --stacktrace
+    - MOD_VERSION="$(./gradlew -q printVersion --console=plain)"
+    - MC_VERSION="${MOD_VERSION#*+}"
+    - echo "Built version $MOD_VERSION (Minecraft $MC_VERSION)"
+    - |
+      if [ -n "$CI_COMMIT_TAG" ] && [ "$CI_COMMIT_TAG" != "v$MOD_VERSION" ]; then
+        echo "Tag '$CI_COMMIT_TAG' does not match the project version 'v$MOD_VERSION' in gradle.properties."
+        exit 1
+      fi
+    - printf 'MOD_VERSION=%s\nMC_VERSION=%s\n' "$MOD_VERSION" "$MC_VERSION" > build.env
+  artifacts:
+    name: "${PACKAGE_NAME}-${CI_COMMIT_REF_SLUG}"
+    paths:
+      - build/libs/*.jar
+    reports:
+      dotenv: build.env
+    expire_in: 30 days
+
+release:
+  stage: publish
+  image: alpine:3
+  needs:
+    - job: build
+      artifacts: true
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
+  script:
+    - apk add --no-cache curl jq
+    - JAR="${PACKAGE_NAME}-${MOD_VERSION}.jar"
+    - test -f "build/libs/$JAR"
+    - (cd build/libs && sha256sum "$JAR" > "$JAR.sha256")
+
+    # Release notes: the CHANGELOG.md section whose heading starts with "## [<version>]".
+    - |
+      awk -v heading="## [$MOD_VERSION]" '
+        index($0, heading) == 1 { found = 1; next }
+        found && /^## \[/ { exit }
+        found { print }
+      ' CHANGELOG.md > release_notes.md
+    - |
+      if ! grep -q '[^[:space:]]' release_notes.md; then
+        echo "CHANGELOG.md has no '## [$MOD_VERSION]' section. Add release notes before tagging."
+        exit 1
+      fi
+
+    # '+' is URL-encoded so the registry path is unambiguous.
+    - ENC_VERSION="$(printf '%s' "$MOD_VERSION" | sed 's/+/%2B/g')"
+    - ENC_JAR="$(printf '%s' "$JAR" | sed 's/+/%2B/g')"
+    - PACKAGE_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PACKAGE_NAME}/${ENC_VERSION}"
+    - |
+      for file in "$JAR" "$JAR.sha256"; do
+        enc_file="$(printf '%s' "$file" | sed 's/+/%2B/g')"
+        curl --fail-with-body --silent --show-error \
+          --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          --upload-file "build/libs/$file" \
+          "${PACKAGE_URL}/${enc_file}"
+        echo
+      done
+
+    - MILESTONE="${MOD_VERSION%%+*}"
+    - |
+      jq -n \
+        --arg tag "$CI_COMMIT_TAG" \
+        --arg name "CopperGolemMod ${MILESTONE} for Minecraft ${MC_VERSION}" \
+        --rawfile description release_notes.md \
+        --arg milestone "$MILESTONE" \
+        --arg jar "$JAR" \
+        --arg jar_url "${PACKAGE_URL}/${ENC_JAR}" \
+        --arg sha_url "${PACKAGE_URL}/${ENC_JAR}.sha256" \
+        '{
+          tag_name: $tag,
+          name: $name,
+          description: $description,
+          milestones: [$milestone],
+          assets: { links: [
+            { name: $jar, url: $jar_url, link_type: "package", direct_asset_path: ("/" + $jar) },
+            { name: ($jar + ".sha256"), url: $sha_url, link_type: "other", direct_asset_path: ("/" + $jar + ".sha256") }
+          ] }
+        }' > release.json
+    - |
+      curl --fail-with-body --silent --show-error \
+        --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+        --header "Content-Type: application/json" \
+        --data @release.json \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases" | jq '{name, tag_name, _links}'
