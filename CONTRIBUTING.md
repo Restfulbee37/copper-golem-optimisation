@@ -50,3 +50,4 @@ Tags matching `v*` are protected and can only be created by maintainers.
 - `priority::high`, `priority::medium`, `priority::low`
 - `status::needs-info`, `status::confirmed`, `status::blocked`
 - `mc::<version>` for the Minecraft version an issue applies to
+- `behavior-changing` for anything that changes how golems behave; such changes must stay behind an opt-in config flag
