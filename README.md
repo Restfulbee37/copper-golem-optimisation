@@ -2,12 +2,13 @@
 
 A Fabric mod that cuts the server tick cost of copper golems, especially in dense sorting farms, without changing how they sort.
 
-- Minecraft `1.21.11`, Fabric Loader `0.19.2`, Fabric API `0.141.4+1.21.11`, Java 21
+- Minecraft `26.1` (any 26.1.x), Fabric Loader `0.19.5`+, Fabric API `0.145.1+26.1`+, Java 25
+- Minecraft 1.21.11 is supported by the `+1.21.11` releases, maintained on the `mc/1.21.11` branch.
 - Server-side logic only. Clients don't need it, and it also works in singleplayer.
 
 ## Install
 
-1. Download `copper_golem_mod-<version>.jar` from the project's **Releases** page. Pick the release whose version ends in your Minecraft version (e.g. `0.2.0+1.21.11` is for Minecraft 1.21.11).
+1. Download `copper_golem_mod-<version>.jar` from the project's **Releases** page. Pick the release whose version ends in your Minecraft version (e.g. `0.2.0+26.1` is for Minecraft 26.1.x, `0.2.0+1.21.11` is for Minecraft 1.21.11).
 2. Put it in your server's `mods` folder alongside [Fabric API](https://modrinth.com/mod/fabric-api), and remove any older CopperGolemMod jar.
 3. Start the server. The defaults are safe; see [Config](#config) for options.
 
@@ -17,7 +18,7 @@ Each release also has a `.sha256` file for checking the download.
 
 In a farm with hundreds of copper golems packed together, most of the cost is not the sorting itself. It's the golems noticing each other:
 
-1. **Looking for players.** Every tick, each golem without a look target walks its whole list of nearby living entities (everything within 16 blocks) looking for a player within 6 blocks to stare at. With 1,800 golems packed together that's about 3.2 million checks per tick, and the answer is almost always "no player here". A crash report from a 1,800-golem test world showed the server thread stuck inside this scan (`LookAtMobWithIntervalTask` → `LivingTargetCache.findFirst`) when the watchdog killed the server.
+1. **Looking for players.** Every tick, each golem without a look target walks its whole list of nearby living entities (everything within 16 blocks) looking for a player within 6 blocks to stare at. With 1,800 golems packed together that's about 3.2 million checks per tick, and the answer is almost always "no player here". A crash report from a 1,800-golem test world showed the server thread stuck inside this scan (`SetEntityLookTargetSometimes` → `NearestVisibleLivingEntities.findClosest`) when the watchdog killed the server.
 2. **Sorting the nearby-entity list.** Once a second each golem collects every living entity within 16 blocks and sorts it by distance. Vanilla recomputes two distances on every comparison.
 3. **Physics and pushing.** Golems trapped in sorter cells still run full movement physics and push against each other every tick.
 
@@ -116,11 +117,11 @@ Run once with `"enabled": false` and once with the defaults on the same world co
 
 ## Versioning
 
-Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+1.21.11`. The mod version follows [Semantic Versioning](https://semver.org/); the part after `+` is the Minecraft version the jar was built for. See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
+Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+26.1`. The mod version follows [Semantic Versioning](https://semver.org/); the part after `+` is the Minecraft version the jar was built for. See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
 ## Build from source
 
-Requires JDK 21.
+Gradle runs on any installed JDK 17+ and downloads the JDK 25 that Minecraft 26.1 needs automatically.
 
 ```bash
 ./gradlew build

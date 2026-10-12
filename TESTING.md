@@ -41,4 +41,4 @@ Test separately, only for designs where golems are trapped:
 
 ## Compatibility
 
-Test with and without Lithium. This mod replaces `NearestLivingEntitiesSensor.sense` for copper golems only (when `fastNearbyEntitySort` is on). If another mod also changes that method, turn `fastNearbyEntitySort` off and compare.
+Test with and without Lithium. This mod replaces `NearestLivingEntitySensor.doTick` for copper golems only (when `fastNearbyEntitySort` is on). If another mod also changes that method, turn `fastNearbyEntitySort` off and compare.

@@ -2,13 +2,21 @@
 
 ## Development setup
 
-Requirements: JDK 21. Everything else is downloaded by Gradle.
+Requirements: any JDK 17+ to start Gradle. Minecraft 26.1 needs Java 25; Gradle downloads it automatically if it isn't installed (see `gradle/gradle-daemon-jvm.properties`). Everything else is downloaded by Gradle too.
 
 ```bash
 ./gradlew build        # builds build/libs/copper_golem_mod-<version>.jar
 ./gradlew runServer    # dev server in ./run (accept the EULA in run/eula.txt first)
-./gradlew genSources   # decompiled, Yarn-mapped Minecraft sources for reading vanilla code
+./gradlew genSources   # decompiled Minecraft sources (official Mojang names) for reading vanilla code
 ```
+
+## Porting to a new Minecraft version
+
+1. Create the maintenance branch for the version `main` currently targets, e.g. `git branch mc/1.21.11 main && git push origin mc/1.21.11`.
+2. On a `port/mc-<version>` branch, update `gradle.properties` (Minecraft, Loader, Fabric API, Loom), plus the Gradle wrapper and Java version if the new Minecraft needs them. Check [fabricmc.net/develop](https://fabricmc.net/develop) and the matching branch of [fabric-example-mod](https://github.com/FabricMC/fabric-example-mod).
+3. Run `./gradlew genSources` and compare the vanilla code each mixin targets with the previous version. The optimizations assume vanilla behavior (see the comments in `GolemOptimizations`), so check the logic, not just the names.
+4. Confirm every mixin applies (they are `require = 1`, so a missed target crashes on startup) by starting a server with copper golems.
+5. Add a `mc::<version>` label and open the merge request.
 
 ## Branches
 
@@ -22,11 +30,11 @@ Merge requests need a passing pipeline. Squash commits on merge if the branch hi
 
 ## Versioning
 
-Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+1.21.11`.
+Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+26.1`.
 
 - The mod version follows [Semantic Versioning](https://semver.org/): MAJOR for config or behavior changes that need user action, MINOR for new features or optimizations, PATCH for fixes.
-- The Minecraft version is build metadata. A port to a new Minecraft version with no other changes keeps the mod version: `0.2.0+1.21.11` becomes `0.2.0+1.22`.
-- Both parts live in `gradle.properties` (`mod_version`, `minecraft_version`). The jar name and `fabric.mod.json` are generated from them.
+- The Minecraft version is build metadata. A port to a new Minecraft version with no other changes keeps the mod version: `0.2.0+1.21.11` becomes `0.2.0+26.1`.
+- Both parts live in `gradle.properties` (`mod_version`, `minecraft_version`). The jar name and `fabric.mod.json` are generated from them. `minecraft_dependency` sets which Minecraft versions the jar accepts (e.g. `~26.1` for all of 26.1.x).
 
 ## Releasing
 
@@ -36,8 +44,8 @@ Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+1.21.11`.
 4. Commit to `main` (or the `mc/*` branch) and wait for the pipeline to pass.
 5. Tag the commit `v<version>` and push the tag:
    ```bash
-   git tag -a "v0.2.0+1.21.11" -m "CopperGolemMod 0.2.0 for Minecraft 1.21.11"
-   git push origin "v0.2.0+1.21.11"
+   git tag -a "v0.2.0+26.1" -m "CopperGolemMod 0.2.0 for Minecraft 26.1"
+   git push origin "v0.2.0+26.1"
    ```
 6. The tag pipeline checks that the tag matches the version, builds the jar, uploads it to the package registry and creates the GitLab Release with the changelog section as its notes and the milestone attached.
 7. Close the milestone.
