@@ -2,13 +2,13 @@
   "required": true,
   "minVersion": "0.8",
   "package": "com.restfulbee.coppergolemmod.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_25",
   "mixins": [
     "BrainMixin",
-    "CopperGolemBrainMixin",
-    "CopperGolemEntityMixin",
-    "MoveItemsTaskMixin",
-    "NearestLivingEntitiesSensorMixin"
+    "CopperGolemAiMixin",
+    "CopperGolemMixin",
+    "NearestLivingEntitySensorMixin",
+    "TransportItemsBetweenContainersMixin"
   ],
   "injectors": {
     "defaultRequire": 1

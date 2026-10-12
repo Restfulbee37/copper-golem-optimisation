@@ -6,9 +6,9 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.text.Text;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,35 +46,35 @@ public final class CopperGolemMod implements ModInitializer {
         return METRICS;
     }
 
-    private static void registerCommands(CommandDispatcher<ServerCommandSource> dispatcher) {
-        dispatcher.register(CommandManager.literal("cgp")
-            .requires(CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK))
-            .then(CommandManager.literal("status").executes(CopperGolemMod::status))
-            .then(CommandManager.literal("reset").executes(context -> {
+    private static void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(Commands.literal("cgp")
+            .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+            .then(Commands.literal("status").executes(CopperGolemMod::status))
+            .then(Commands.literal("reset").executes(context -> {
                 METRICS.reset();
-                context.getSource().sendFeedback(() -> Text.literal("CopperGolemMod metrics reset."), false);
+                context.getSource().sendSuccess(() -> Component.literal("CopperGolemMod metrics reset."), false);
                 return 1;
             }))
-            .then(CommandManager.literal("reload").executes(context -> {
+            .then(Commands.literal("reload").executes(context -> {
                 config = CopperGolemModConfig.load(CONFIG_PATH, LOGGER);
-                context.getSource().sendFeedback(() -> Text.literal("CopperGolemMod config reloaded (enabled=" + config.enabled
+                context.getSource().sendSuccess(() -> Component.literal("CopperGolemMod config reloaded (enabled=" + config.enabled
                     + ", stationarySorter=" + (config.isStationarySorterActive() ? "ON" : "off") + ")."), true);
                 return 1;
             }))
-            .then(CommandManager.literal("profile")
-                .then(CommandManager.literal("on").executes(context -> setProfiling(context, true)))
-                .then(CommandManager.literal("off").executes(context -> setProfiling(context, false)))));
+            .then(Commands.literal("profile")
+                .then(Commands.literal("on").executes(context -> setProfiling(context, true)))
+                .then(Commands.literal("off").executes(context -> setProfiling(context, false)))));
     }
 
-    private static int status(CommandContext<ServerCommandSource> context) {
+    private static int status(CommandContext<CommandSourceStack> context) {
         String status = METRICS.formatStatus(config);
-        context.getSource().sendFeedback(() -> Text.literal(status), false);
+        context.getSource().sendSuccess(() -> Component.literal(status), false);
         return 1;
     }
 
-    private static int setProfiling(CommandContext<ServerCommandSource> context, boolean enabled) {
+    private static int setProfiling(CommandContext<CommandSourceStack> context, boolean enabled) {
         METRICS.setProfiling(enabled);
-        context.getSource().sendFeedback(() -> Text.literal("CopperGolemMod golem tick profiling " + (enabled ? "on." : "off.")), false);
+        context.getSource().sendSuccess(() -> Component.literal("CopperGolemMod golem tick profiling " + (enabled ? "on." : "off.")), false);
         return 1;
     }
 }
