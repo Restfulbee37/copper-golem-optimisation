@@ -97,23 +97,45 @@ Operator only (permission level 2):
 | Command | Effect |
 | --- | --- |
 | `/cgp status` | Current settings, golems ticked per server tick, stacks taken/placed per minute, and how often each optimization kicked in |
-| `/cgp reset` | Reset the counters (start of a benchmark) |
-| `/cgp reload` | Reload the config file |
+| `/cgp reset` | Reset the counters |
+| `/cgp reload` | Reload the config file (stops a running benchmark) |
 | `/cgp profile on\|off` | Time every golem tick and report the average cost in `/cgp status` (adds a little overhead while on) |
+| `/cgp bench ab [minutes] [phaseSeconds]` | A/B benchmark: switches the mod on and off and compares them (default 10 min, 30 s phases) |
+| `/cgp bench current [minutes]` | Benchmark the current config as-is (default 5 min), e.g. to compare versions or other mods |
+| `/cgp bench status` / `stop` | Show progress / stop early and report what was measured |
 
 ## Benchmarking
 
-Compare sorting throughput and tick time, not just one of them. See [TESTING.md](TESTING.md).
-
 ```text
-/cgp reset
-/cgp profile on
-/spark profiler start --timeout 120 --only-ticks-over 50
-... wait 2 minutes ...
-/cgp status
+/cgp bench ab
 ```
 
-Run once with `"enabled": false` and once with the defaults on the same world copy. `stacks placed/min` should stay the same, and golem tick time and MSPT should drop.
+This runs for about 10 minutes of game time while the farm keeps working as usual. It switches the mod on and off every 30 seconds, in the order on, off, off, on, on, off, …, so changes in the world during the run (villager schedules, item input, mob counts) affect both sides equally. Only the in-memory setting is switched; the config file is never changed. The first 5 seconds of every phase are a warm-up and aren't measured.
+
+At the end it reports, for the mod on and off:
+
+- **MSPT** (mean and p95), measured by the mod itself
+- **TPS**
+- **golem time per tick** and **cost per golem tick**
+- **stacks placed per 1,000 game ticks**: sorting speed per game tick, so it doesn't depend on TPS
+- **phase spread**: how much results vary between phases, to tell a real difference from noise
+
+It also gives a verdict and warns if the mod made ticks slower or sorting slower, which would mean an optimization broke on that version. Feed the farm items during the run so sorting speed can be compared.
+
+Results are also saved as JSON in `copper_golem_mod/benchmarks/` in the server folder, with the mod and Minecraft versions, other installed mods and the config, so runs on different versions can be compared side by side. See [TESTING.md](TESTING.md) for the full procedure.
+
+### Example: 864 golems, ~390 villagers, simulation distance 32 (Minecraft 1.21.11, 5-minute Spark profiles)
+
+| | MSPT mean | TPS |
+| --- | --- | --- |
+| Mod off | 62.6 ms | 16.0 |
+| Mod on | 46.0 ms | 20.0 |
+| Mod on + Lithium | 36.4 ms | 20.0 |
+
+## Compatibility
+
+- **Lithium**: compatible and recommended. Tested with Lithium 0.21.4 on Minecraft 1.21.11: no mixin conflicts, every optimization stays active, and the improvements add up.
+  Not yet tested with Lithium on Minecraft 26.1; use `/cgp bench current` with and without it to check.
 
 ## Versioning
 
