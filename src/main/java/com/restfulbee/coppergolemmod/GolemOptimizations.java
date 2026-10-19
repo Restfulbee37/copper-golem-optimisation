@@ -1,21 +1,21 @@
 package com.restfulbee.coppergolemmod;
 
 import it.unimi.dsi.fastutil.ints.IntArrays;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.ai.brain.Brain;
-import net.minecraft.entity.ai.brain.EntityLookTarget;
-import net.minecraft.entity.ai.brain.LivingTargetCache;
-import net.minecraft.entity.ai.brain.MemoryModuleType;
-import net.minecraft.entity.ai.brain.task.LookAtMobWithIntervalTask;
-import net.minecraft.entity.ai.brain.task.Task;
-import net.minecraft.entity.ai.brain.task.TaskTriggerer;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.passive.CopperGolemEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.intprovider.UniformIntProvider;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.valueproviders.UniformInt;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.Brain;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.behavior.BehaviorControl;
+import net.minecraft.world.entity.ai.behavior.EntityTracker;
+import net.minecraft.world.entity.ai.behavior.SetEntityLookTargetSometimes;
+import net.minecraft.world.entity.ai.behavior.declarative.BehaviorBuilder;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.memory.NearestVisibleLivingEntities;
+import net.minecraft.world.entity.animal.golem.CopperGolem;
+import net.minecraft.world.phys.AABB;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,48 +29,48 @@ public final class GolemOptimizations {
     }
 
     /**
-     * Drop-in replacement for {@code LookAtMobWithIntervalTask.follow(EntityType.PLAYER, maxDistance, interval)}
-     * as used by {@code CopperGolemBrain}.
+     * Drop-in replacement for {@code SetEntityLookTargetSometimes.create(EntityType.PLAYER, maxDistance, interval)}
+     * as used by {@code CopperGolemAi}.
      *
      * <p>Vanilla runs this every tick for every golem without a look target, and each run walks the golem's
-     * whole VISIBLE_MOBS list (every living entity within 16 blocks) looking for a player. In a dense farm that
+     * whole NEAREST_VISIBLE_LIVING_ENTITIES list (every living entity within 16 blocks) looking for a player. In a dense farm that
      * is golems x golems type checks per tick, and it almost never finds anything. A match requires a player
      * within {@code maxDistance}, so when no player in the world is that close the scan cannot succeed and is
      * skipped. Otherwise this runs the exact vanilla logic, including the random look interval.
      */
-    @SuppressWarnings("deprecation") // LookAtMobWithIntervalTask is deprecated upstream but still what vanilla uses here.
-    public static Task<LivingEntity> createLookAtPlayerTask(float maxDistance, UniformIntProvider interval) {
+    @SuppressWarnings("deprecation") // SetEntityLookTargetSometimes is deprecated upstream but still what vanilla uses here.
+    public static BehaviorControl<LivingEntity> createLookAtPlayerTask(float maxDistance, UniformInt interval) {
         float maxDistanceSquared = maxDistance * maxDistance;
-        Predicate<LivingEntity> isPlayer = entity -> EntityType.PLAYER.equals(entity.getType());
-        LookAtMobWithIntervalTask.Interval lookInterval = new LookAtMobWithIntervalTask.Interval(interval);
-        return TaskTriggerer.task(
-            context -> context.group(context.queryMemoryAbsent(MemoryModuleType.LOOK_TARGET), context.queryMemoryValue(MemoryModuleType.VISIBLE_MOBS))
-                .apply(context, (lookTarget, visibleMobs) -> (world, entity, time) -> {
+        Predicate<LivingEntity> isPlayer = entity -> entity.is(EntityType.PLAYER);
+        SetEntityLookTargetSometimes.Ticker lookInterval = new SetEntityLookTargetSometimes.Ticker(interval);
+        return BehaviorBuilder.create(
+            i -> i.group(i.absent(MemoryModuleType.LOOK_TARGET), i.present(MemoryModuleType.NEAREST_VISIBLE_LIVING_ENTITIES))
+                .apply(i, (lookTarget, nearestEntities) -> (level, body, timestamp) -> {
                     CopperGolemModConfig config = CopperGolemMod.config();
-                    if (config.enabled && config.optimizations.fastPlayerLookCheck && !isAnyPlayerWithin(world, entity, maxDistanceSquared)) {
+                    if (config.enabled && config.optimizations.fastPlayerLookCheck && !isAnyPlayerWithin(level, body, maxDistanceSquared)) {
                         CopperGolemMod.metrics().lookScanSkipped();
                         return false;
                     }
                     CopperGolemMod.metrics().lookScanRun();
 
-                    Optional<LivingEntity> target = context.<LivingTargetCache>getValue(visibleMobs)
-                        .findFirst(isPlayer.and(other -> other.squaredDistanceTo(entity) <= maxDistanceSquared));
+                    Optional<LivingEntity> target = i.<NearestVisibleLivingEntities>get(nearestEntities)
+                        .findClosest(isPlayer.and(other -> other.distanceToSqr(body) <= maxDistanceSquared));
                     if (target.isEmpty()) {
                         return false;
-                    } else if (!lookInterval.shouldRun(world.random)) {
+                    } else if (!lookInterval.tickDownAndCheck(level.getRandom())) {
                         return false;
                     } else {
-                        lookTarget.remember(new EntityLookTarget(target.get(), true));
+                        lookTarget.set(new EntityTracker(target.get(), true));
                         return true;
                     }
                 })
         );
     }
 
-    private static boolean isAnyPlayerWithin(ServerWorld world, LivingEntity entity, double maxDistanceSquared) {
-        List<ServerPlayerEntity> players = world.getPlayers();
+    private static boolean isAnyPlayerWithin(ServerLevel level, LivingEntity entity, double maxDistanceSquared) {
+        List<ServerPlayer> players = level.players();
         for (int i = 0, size = players.size(); i < size; i++) {
-            if (players.get(i).squaredDistanceTo(entity) <= maxDistanceSquared) {
+            if (players.get(i).distanceToSqr(entity) <= maxDistanceSquared) {
                 return true;
             }
         }
@@ -78,17 +78,17 @@ public final class GolemOptimizations {
     }
 
     /**
-     * Same result as {@code NearestLivingEntitiesSensor.sense} for a copper golem, but cheaper.
+     * Same result as {@code NearestLivingEntitySensor.doTick} for a copper golem, but cheaper.
      *
-     * <p>Vanilla sorts with {@code Comparator.comparingDouble(entity::squaredDistanceTo)}, which recomputes two
+     * <p>Vanilla sorts with {@code Comparator.comparingDouble(body::distanceToSqr)}, which recomputes two
      * distances for every comparison (roughly 2 * n * log2(n) distance calculations). Here each distance is
      * computed once and the indices are sorted with a stable merge sort. Vanilla's {@code List.sort} is also
      * stable and compares with {@code Double.compare}, so ties keep the same order and the list is identical.
      */
-    public static void senseNearbyEntities(ServerWorld world, CopperGolemEntity golem) {
-        double range = golem.getAttributeValue(EntityAttributes.FOLLOW_RANGE);
-        Box box = golem.getBoundingBox().expand(range, range, range);
-        List<LivingEntity> entities = world.getEntitiesByClass(LivingEntity.class, box, other -> other != golem && other.isAlive());
+    public static void senseNearbyEntities(ServerLevel level, CopperGolem golem) {
+        double range = golem.getAttributeValue(Attributes.FOLLOW_RANGE);
+        AABB box = golem.getBoundingBox().inflate(range, range, range);
+        List<LivingEntity> entities = level.getEntitiesOfClass(LivingEntity.class, box, other -> other != golem && other.isAlive());
 
         int size = entities.size();
         if (size > 1) {
@@ -96,7 +96,7 @@ public final class GolemOptimizations {
             double[] distances = new double[size];
             int[] order = new int[size];
             for (int i = 0; i < size; i++) {
-                distances[i] = golem.squaredDistanceTo(unsorted[i]);
+                distances[i] = golem.distanceToSqr(unsorted[i]);
                 order[i] = i;
             }
             IntArrays.mergeSort(order, (a, b) -> Double.compare(distances[a], distances[b]));
@@ -106,8 +106,8 @@ public final class GolemOptimizations {
         }
 
         Brain<?> brain = golem.getBrain();
-        brain.remember(MemoryModuleType.MOBS, entities);
-        brain.remember(MemoryModuleType.VISIBLE_MOBS, new LivingTargetCache(world, golem, entities));
+        brain.setMemory(MemoryModuleType.NEAREST_LIVING_ENTITIES, entities);
+        brain.setMemory(MemoryModuleType.NEAREST_VISIBLE_LIVING_ENTITIES, new NearestVisibleLivingEntities(level, golem, entities));
         CopperGolemMod.metrics().sensorSortOptimized();
     }
 
@@ -118,20 +118,20 @@ public final class GolemOptimizations {
      * serve looking at players and closing doors. The cooldown timer itself is ticked by a brain task, not
      * by a sensor, so it still counts down at normal speed and sorting resumes on the same tick as vanilla.
      */
-    public static boolean shouldSkipIdleSensors(CopperGolemEntity golem) {
+    public static boolean shouldSkipIdleSensors(CopperGolem golem) {
         CopperGolemModConfig config = CopperGolemMod.config();
         int interval = config.idleThrottle.sensorTickInterval;
         if (!config.enabled || !config.idleThrottle.enabled || interval <= 1) {
             return false;
         }
-        if (Math.floorMod(golem.age + golem.getId(), interval) == 0) {
+        if (Math.floorMod(golem.tickCount + golem.getId(), interval) == 0) {
             return false;
         }
         // React immediately to being hurt; HURT_BY is a sensor.
         if (golem.hurtTime > 0 || golem.isPanicking()) {
             return false;
         }
-        if (!golem.getBrain().hasMemoryModule(MemoryModuleType.TRANSPORT_ITEMS_COOLDOWN_TICKS)) {
+        if (!golem.getBrain().hasMemoryValue(MemoryModuleType.TRANSPORT_ITEMS_COOLDOWN_TICKS)) {
             return false;
         }
         CopperGolemMod.metrics().idleSensorTickSkipped();

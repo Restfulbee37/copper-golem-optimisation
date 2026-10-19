@@ -2,20 +2,24 @@
 
 Always test on a copy of your world.
 
-For every run, record: Minecraft/Fabric/Fabric API/Java versions, whether Lithium (or other performance mods) is installed, the golem count, the config used, the Spark profile link, and the `/cgp status` output.
+For every run, keep the `/cgp bench` JSON file. It records the Minecraft, mod and Java versions, other installed mods (e.g. Lithium), the config and every measurement. Add the golem count, farm design and any Spark profile links.
 
-## Baseline vs. mod
+## Baseline vs. mod: `/cgp bench ab`
 
-Use the same world copy, the same item input, and the same duration for each run.
+1. Start the server with the config you want to test (`enabled` can stay `true`; the benchmark switches it).
+2. Start feeding the farm items, and keep a player nearby so the chunks stay loaded, but not inside the farm.
+3. Run `/cgp bench ab` (10 minutes, 30 s phases). For noisy worlds use a longer run, e.g. `/cgp bench ab 20`.
+4. Wait for the report, or check `/cgp bench status`. Don't run `/cgp reload` during the run; it stops the benchmark.
+5. Check the verdict lines:
+   - `OK: MSPT is X% lower with the mod on` means the optimizations work.
+   - `OK: sorting speed per game tick is not lower` means sorting isn't harmed.
+   - Any `WARNING` means an optimization is broken or slowing golems down on this version. Open an issue with the JSON file.
+   - `INCONCLUSIVE` or `NOT ENOUGH SORTING` means run longer, or feed more items.
+6. Keep the JSON file from `copper_golem_mod/benchmarks/`.
 
-1. Set `"enabled": false` in `config/copper_golem_mod.json` and run `/cgp reload`.
-2. `/cgp reset`, `/cgp profile on`, `/spark profiler start --timeout 120 --only-ticks-over 50`.
-3. Feed a known item stream for at least 2 minutes, then run `/cgp status` and save the Spark link.
-4. Set `"enabled": true` (defaults), `/cgp reload`, and repeat steps 2–3.
-5. Compare:
-   - `stacks placed/min` should be about the same. The default optimizations don't change sorting.
-   - `us per golem tick` and MSPT should drop.
-   - `player-look scans: N skipped` should be large when no player stands inside the farm.
+To compare **versions or other mods** (a new Minecraft version, a new mod build, Lithium on/off), run `/cgp bench current` once per setup on the same world copy and compare the JSON files. For a quick mod on vs off check, `/cgp bench ab` is better because both sides run in the same session.
+
+If you also use Spark, profile **without** `--only-ticks-over` when comparing runs. That option records different subsets of ticks in each run and makes comparisons misleading.
 
 Suggested golem counts: 18, 72, 144, 432, 800+.
 
@@ -41,4 +45,4 @@ Test separately, only for designs where golems are trapped:
 
 ## Compatibility
 
-Test with and without Lithium. This mod replaces `NearestLivingEntitiesSensor.sense` for copper golems only (when `fastNearbyEntitySort` is on). If another mod also changes that method, turn `fastNearbyEntitySort` off and compare.
+Test with and without Lithium. This mod replaces `NearestLivingEntitySensor.doTick` for copper golems only (when `fastNearbyEntitySort` is on). If another mod also changes that method, turn `fastNearbyEntitySort` off and compare.

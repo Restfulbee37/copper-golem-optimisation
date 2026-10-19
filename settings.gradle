@@ -9,4 +9,9 @@ pluginManagement {
     }
 }
 
+plugins {
+    // Lets Gradle download the JDK 25 required by Minecraft 26.1 when it isn't installed.
+    id "org.gradle.toolchains.foojay-resolver-convention" version "1.0.0"
+}
+
 rootProject.name = "CopperGolemMod"

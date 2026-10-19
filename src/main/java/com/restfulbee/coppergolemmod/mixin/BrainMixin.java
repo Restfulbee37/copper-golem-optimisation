@@ -1,10 +1,10 @@
 package com.restfulbee.coppergolemmod.mixin;
 
 import com.restfulbee.coppergolemmod.GolemOptimizations;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.ai.brain.Brain;
-import net.minecraft.entity.passive.CopperGolemEntity;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.Brain;
+import net.minecraft.world.entity.animal.golem.CopperGolem;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,8 +17,8 @@ public abstract class BrainMixin<E extends LivingEntity> {
      * See {@link GolemOptimizations#shouldSkipIdleSensors}.
      */
     @Inject(method = "tickSensors", at = @At("HEAD"), cancellable = true)
-    private void copperGolemMod$throttleIdleSensors(ServerWorld world, E entity, CallbackInfo ci) {
-        if (entity instanceof CopperGolemEntity golem && GolemOptimizations.shouldSkipIdleSensors(golem)) {
+    private void copperGolemMod$throttleIdleSensors(ServerLevel level, E body, CallbackInfo ci) {
+        if (body instanceof CopperGolem golem && GolemOptimizations.shouldSkipIdleSensors(golem)) {
             ci.cancel();
         }
     }

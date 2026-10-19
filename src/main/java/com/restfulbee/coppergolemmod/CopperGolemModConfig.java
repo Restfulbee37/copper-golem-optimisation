@@ -70,6 +70,13 @@ public final class CopperGolemModConfig {
         public int logIntervalSeconds = 0;
     }
 
+    /** An in-memory copy with only {@code enabled} changed. Used by benchmarks; never saved. */
+    public CopperGolemModConfig withEnabled(boolean enabled) {
+        CopperGolemModConfig copy = GSON.fromJson(GSON.toJson(this), CopperGolemModConfig.class);
+        copy.enabled = enabled;
+        return copy;
+    }
+
     public boolean isStationarySorterActive() {
         return enabled && stationarySorter.enabled && stationarySorter.iUnderstandThisChangesCopperGolemBehavior;
     }

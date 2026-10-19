@@ -2,12 +2,13 @@
 
 A Fabric mod that cuts the server tick cost of copper golems, especially in dense sorting farms, without changing how they sort.
 
-- Minecraft `1.21.11`, Fabric Loader `0.19.2`, Fabric API `0.141.4+1.21.11`, Java 21
+- Minecraft `26.1` (any 26.1.x), Fabric Loader `0.19.5`+, Fabric API `0.145.1+26.1`+, Java 25
+- Minecraft 1.21.11 is supported by the `+1.21.11` releases, maintained on the `mc/1.21.11` branch.
 - Server-side logic only. Clients don't need it, and it also works in singleplayer.
 
 ## Install
 
-1. Download `copper_golem_mod-<version>.jar` from the project's **Releases** page. Pick the release whose version ends in your Minecraft version (e.g. `0.2.0+1.21.11` is for Minecraft 1.21.11).
+1. Download `copper_golem_mod-<version>.jar` from the project's **Releases** page. Pick the release whose version ends in your Minecraft version (e.g. `0.2.0+26.1` is for Minecraft 26.1.x, `0.2.0+1.21.11` is for Minecraft 1.21.11).
 2. Put it in your server's `mods` folder alongside [Fabric API](https://modrinth.com/mod/fabric-api), and remove any older CopperGolemMod jar.
 3. Start the server. The defaults are safe; see [Config](#config) for options.
 
@@ -17,7 +18,7 @@ Each release also has a `.sha256` file for checking the download.
 
 In a farm with hundreds of copper golems packed together, most of the cost is not the sorting itself. It's the golems noticing each other:
 
-1. **Looking for players.** Every tick, each golem without a look target walks its whole list of nearby living entities (everything within 16 blocks) looking for a player within 6 blocks to stare at. With 1,800 golems packed together that's about 3.2 million checks per tick, and the answer is almost always "no player here". A crash report from a 1,800-golem test world showed the server thread stuck inside this scan (`LookAtMobWithIntervalTask` → `LivingTargetCache.findFirst`) when the watchdog killed the server.
+1. **Looking for players.** Every tick, each golem without a look target walks its whole list of nearby living entities (everything within 16 blocks) looking for a player within 6 blocks to stare at. With 1,800 golems packed together that's about 3.2 million checks per tick, and the answer is almost always "no player here". A crash report from a 1,800-golem test world showed the server thread stuck inside this scan (`SetEntityLookTargetSometimes` → `NearestVisibleLivingEntities.findClosest`) when the watchdog killed the server.
 2. **Sorting the nearby-entity list.** Once a second each golem collects every living entity within 16 blocks and sorts it by distance. Vanilla recomputes two distances on every comparison.
 3. **Physics and pushing.** Golems trapped in sorter cells still run full movement physics and push against each other every tick.
 
@@ -96,31 +97,53 @@ Operator only (permission level 2):
 | Command | Effect |
 | --- | --- |
 | `/cgp status` | Current settings, golems ticked per server tick, stacks taken/placed per minute, and how often each optimization kicked in |
-| `/cgp reset` | Reset the counters (start of a benchmark) |
-| `/cgp reload` | Reload the config file |
+| `/cgp reset` | Reset the counters |
+| `/cgp reload` | Reload the config file (stops a running benchmark) |
 | `/cgp profile on\|off` | Time every golem tick and report the average cost in `/cgp status` (adds a little overhead while on) |
+| `/cgp bench ab [minutes] [phaseSeconds]` | A/B benchmark: switches the mod on and off and compares them (default 10 min, 30 s phases) |
+| `/cgp bench current [minutes]` | Benchmark the current config as-is (default 5 min), e.g. to compare versions or other mods |
+| `/cgp bench status` / `stop` | Show progress / stop early and report what was measured |
 
 ## Benchmarking
 
-Compare sorting throughput and tick time, not just one of them. See [TESTING.md](TESTING.md).
-
 ```text
-/cgp reset
-/cgp profile on
-/spark profiler start --timeout 120 --only-ticks-over 50
-... wait 2 minutes ...
-/cgp status
+/cgp bench ab
 ```
 
-Run once with `"enabled": false` and once with the defaults on the same world copy. `stacks placed/min` should stay the same, and golem tick time and MSPT should drop.
+This runs for about 10 minutes of game time while the farm keeps working as usual. It switches the mod on and off every 30 seconds, in the order on, off, off, on, on, off, …, so changes in the world during the run (villager schedules, item input, mob counts) affect both sides equally. Only the in-memory setting is switched; the config file is never changed. The first 5 seconds of every phase are a warm-up and aren't measured.
+
+At the end it reports, for the mod on and off:
+
+- **MSPT** (mean and p95), measured by the mod itself
+- **TPS**
+- **golem time per tick** and **cost per golem tick**
+- **stacks placed per 1,000 game ticks**: sorting speed per game tick, so it doesn't depend on TPS
+- **phase spread**: how much results vary between phases, to tell a real difference from noise
+
+It also gives a verdict and warns if the mod made ticks slower or sorting slower, which would mean an optimization broke on that version. Feed the farm items during the run so sorting speed can be compared.
+
+Results are also saved as JSON in `copper_golem_mod/benchmarks/` in the server folder, with the mod and Minecraft versions, other installed mods and the config, so runs on different versions can be compared side by side. See [TESTING.md](TESTING.md) for the full procedure.
+
+### Example: 864 golems, ~390 villagers, simulation distance 32 (Minecraft 1.21.11, 5-minute Spark profiles)
+
+| | MSPT mean | TPS |
+| --- | --- | --- |
+| Mod off | 62.6 ms | 16.0 |
+| Mod on | 46.0 ms | 20.0 |
+| Mod on + Lithium | 36.4 ms | 20.0 |
+
+## Compatibility
+
+- **Lithium**: compatible and recommended. Tested with Lithium 0.21.4 on Minecraft 1.21.11: no mixin conflicts, every optimization stays active, and the improvements add up.
+  Not yet tested with Lithium on Minecraft 26.1; use `/cgp bench current` with and without it to check.
 
 ## Versioning
 
-Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+1.21.11`. The mod version follows [Semantic Versioning](https://semver.org/); the part after `+` is the Minecraft version the jar was built for. See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
+Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+26.1`. The mod version follows [Semantic Versioning](https://semver.org/); the part after `+` is the Minecraft version the jar was built for. See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
 ## Build from source
 
-Requires JDK 21.
+Gradle runs on any installed JDK 17+ and downloads the JDK 25 that Minecraft 26.1 needs automatically.
 
 ```bash
 ./gradlew build

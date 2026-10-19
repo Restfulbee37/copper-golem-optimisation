@@ -7,6 +7,23 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+### Added
+- `/cgp bench ab [minutes] [phaseSeconds]`: A/B benchmark that switches the mod
+  on and off in memory (on, off, off, on, …) and reports MSPT, TPS, golem tick
+  cost and stacks placed per 1,000 game ticks for each side, with a verdict
+  that warns if the mod made ticks or sorting slower. Results are saved as JSON
+  in `copper_golem_mod/benchmarks/`.
+- `/cgp bench current [minutes]`, `/cgp bench status` and `/cgp bench stop`.
+- JUnit tests (run in CI) for the benchmark logic.
+- README: Lithium compatibility notes and example results.
+
+### Changed
+- Ported to Minecraft 26.1 (accepts any 26.1.x). Minecraft 26.1 is unobfuscated,
+  so the mod is now built against official Mojang names without Yarn mappings.
+  Optimizations and config are unchanged.
+- Requires Java 25, Fabric Loader 0.19.5+ and Fabric API for 26.1. Builds for
+  Minecraft 1.21.11 continue on the `mc/1.21.11` branch.
+
 ## [0.2.0+1.21.11] - 2026-10-12
 
 A rewrite that targets the code that actually makes copper golems expensive.
