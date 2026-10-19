@@ -25,6 +25,14 @@ public final class ModMetrics {
     private long profiledServerTicks;
     private long lastLogNanos = System.nanoTime();
 
+    // Lifetime totals for benchmarks. Never reset, so /cgp reset can't disturb a running benchmark.
+    private boolean benchmarkTiming;
+    private long lifetimeGolemTicks;
+    private long lifetimeTimedGolemTicks;
+    private long lifetimeTimedGolemNanos;
+    private long lifetimeStacksTaken;
+    private long lifetimeStacksPlaced;
+
     public void reset() {
         windowStartNanos = System.nanoTime();
         serverTicks = 0;
@@ -51,14 +59,17 @@ public final class ModMetrics {
 
     public void golemTick() {
         golemTicks++;
+        lifetimeGolemTicks++;
     }
 
     public void stackTaken() {
         stacksTaken++;
+        lifetimeStacksTaken++;
     }
 
     public void stackPlaced() {
         stacksPlaced++;
+        lifetimeStacksPlaced++;
     }
 
     public void lookScanSkipped() {
@@ -89,6 +100,19 @@ public final class ModMetrics {
         return profiling;
     }
 
+    /** Golem ticks are timed while {@code /cgp profile} is on or a benchmark is running. */
+    public boolean shouldTimeGolemTicks() {
+        return profiling || benchmarkTiming;
+    }
+
+    public void setBenchmarkTiming(boolean benchmarkTiming) {
+        this.benchmarkTiming = benchmarkTiming;
+    }
+
+    public Snapshot snapshot() {
+        return new Snapshot(lifetimeGolemTicks, lifetimeTimedGolemTicks, lifetimeTimedGolemNanos, lifetimeStacksTaken, lifetimeStacksPlaced);
+    }
+
     public void setProfiling(boolean profiling) {
         this.profiling = profiling;
         profiledGolemTicks = 0;
@@ -97,8 +121,12 @@ public final class ModMetrics {
     }
 
     public void recordGolemTickNanos(long nanos) {
-        profiledGolemTicks++;
-        profiledGolemNanos += nanos;
+        lifetimeTimedGolemTicks++;
+        lifetimeTimedGolemNanos += nanos;
+        if (profiling) {
+            profiledGolemTicks++;
+            profiledGolemNanos += nanos;
+        }
     }
 
     /** Returns true when a periodic log line is due, and restarts the log interval. */
@@ -142,7 +170,20 @@ public final class ModMetrics {
         } else {
             out.append("  profile: off (use /cgp profile on)\n");
         }
-        out.append("  Use Spark for overall TPS/MSPT.");
+        out.append("  Use /cgp bench ab to compare the mod on vs off, or Spark for a full profile.");
         return out.toString();
+    }
+
+    /** Lifetime counter values at one moment; subtract two snapshots to get the totals in between. */
+    public record Snapshot(long golemTicks, long timedGolemTicks, long timedGolemNanos, long stacksTaken, long stacksPlaced) {
+        public Snapshot minus(Snapshot earlier) {
+            return new Snapshot(
+                golemTicks - earlier.golemTicks,
+                timedGolemTicks - earlier.timedGolemTicks,
+                timedGolemNanos - earlier.timedGolemNanos,
+                stacksTaken - earlier.stacksTaken,
+                stacksPlaced - earlier.stacksPlaced
+            );
+        }
     }
 }
