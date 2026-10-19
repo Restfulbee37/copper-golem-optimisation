@@ -42,6 +42,9 @@ variables:
       - .gradle-home/caches/
       - .gradle-home/wrapper/
       - .gradle/loom-cache/
+  # One job at a time from this project on the runner, so a running benchmark never shares its CPUs with another
+  # job (another pipeline's build, tests or benchmark) while it measures MSPT.
+  resource_group: minecraft-runner
   before_script:
     - chmod +x gradlew
     # Record the machine the results came from (the workload numbers depend on it).
@@ -88,7 +91,10 @@ gametest:correctness:
 gametest:workload:
   extends: .gradle
   stage: test
-  needs: []
+  # Runs after the correctness tests: a broken build isn't worth benchmarking.
+  needs:
+    - job: gametest:correctness
+      artifacts: false
   timeout: 3h
   script:
     - ./gradlew runGameTest -Pgametest.filter='copper_golem_mod_test:workload_benchmark_*' --console=plain --stacktrace
