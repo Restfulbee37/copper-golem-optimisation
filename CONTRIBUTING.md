@@ -5,7 +5,8 @@
 Requirements: any JDK 17+ to start Gradle. Minecraft 26.1 needs Java 25; Gradle downloads it automatically if it isn't installed (see `gradle/gradle-daemon-jvm.properties`). Everything else is downloaded by Gradle too.
 
 ```bash
-./gradlew build        # builds build/libs/copper_golem_mod-<version>.jar
+./gradlew build        # builds build/libs/copper_golem_mod-<version>.jar and runs the tests
+./gradlew test         # JUnit tests only (run inside a Fabric environment via fabric-loader-junit)
 ./gradlew runServer    # dev server in ./run (accept the EULA in run/eula.txt first)
 ./gradlew genSources   # decompiled Minecraft sources (official Mojang names) for reading vanilla code
 ```
