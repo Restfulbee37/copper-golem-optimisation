@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "copper_golem_mod_test",
+  "version": "1.0.0",
+  "name": "CopperGolemMod GameTests",
+  "description": "In-game tests and the workload benchmark for CopperGolemMod. Development only; not shipped.",
+  "license": "All-Rights-Reserved",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.restfulbee.coppergolemmod.test.CopperGolemModTestMod"
+    ],
+    "fabric-gametest": [
+      "com.restfulbee.coppergolemmod.test.CorrectnessTests"
+    ]
+  },
+  "depends": {
+    "copper_golem_mod": "*",
+    "fabric-gametest-api-v1": "*"
+  }
+}

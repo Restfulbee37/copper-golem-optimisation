@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:all_of",
+  "definitions": [
+    {"type": "copper_golem_mod_test:mod_config", "enabled": false},
+    {"type": "minecraft:game_rules", "rules": {"minecraft:spawn_mobs": false, "minecraft:spawn_patrols": false, "minecraft:spawn_wandering_traders": false, "minecraft:spawn_phantoms": false, "minecraft:advance_weather": false, "minecraft:advance_time": false, "minecraft:random_tick_speed": 0}}
+  ]
+}
