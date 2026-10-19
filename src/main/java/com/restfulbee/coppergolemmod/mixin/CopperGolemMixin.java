@@ -40,7 +40,7 @@ public abstract class CopperGolemMixin extends AbstractGolem {
         }
         ModMetrics metrics = CopperGolemMod.metrics();
         metrics.golemTick();
-        if (metrics.isProfiling()) {
+        if (metrics.shouldTimeGolemTicks()) {
             copperGolemMod$tickStartNanos = System.nanoTime();
         }
         copperGolemMod$updateStationaryState(CopperGolemMod.config());
