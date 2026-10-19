@@ -7,6 +7,15 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+## [0.3.0+26.1] - 2026-10-19
+
+First release for Minecraft 26.1, and the release that adds the `/cgp bench`
+benchmark.
+
+Measured with `/cgp bench ab` (864 copper golems, Lithium installed): MSPT
+41.6 → 36.0 ms (−13.5%) and golem time per tick 18.4 → 12.4 ms (−33%) with the
+mod on, with no change in sorting speed.
+
 ### Added
 - `/cgp bench ab [minutes] [phaseSeconds]`: A/B benchmark that switches the mod
   on and off in memory (on, off, off, on, …) and reports MSPT, TPS, golem tick
