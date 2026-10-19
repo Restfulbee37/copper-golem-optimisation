@@ -7,6 +7,10 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+## [0.4.0+1.21.11] - 2026-10-19
+
+Adds an opt-in switch to stop copper golems looking at players.
+
 ### Added
 - `behavior.golemsLookAtPlayers` config option (default `true`, vanilla). Set it
   to `false` to stop copper golems turning to look at nearby players. This is
