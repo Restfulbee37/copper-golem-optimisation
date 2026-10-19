@@ -14,6 +14,7 @@ public final class ModMetrics {
     private long stacksPlaced;
     private long lookScansSkipped;
     private long lookScansRun;
+    private long lookDisabled;
     private long sensorSortsOptimized;
     private long idleSensorTicksSkipped;
     private long stationaryTravelSkipped;
@@ -41,6 +42,7 @@ public final class ModMetrics {
         stacksPlaced = 0;
         lookScansSkipped = 0;
         lookScansRun = 0;
+        lookDisabled = 0;
         sensorSortsOptimized = 0;
         idleSensorTicksSkipped = 0;
         stationaryTravelSkipped = 0;
@@ -78,6 +80,10 @@ public final class ModMetrics {
 
     public void lookScanRun() {
         lookScansRun++;
+    }
+
+    public void lookDisabled() {
+        lookDisabled++;
     }
 
     public void sensorSortOptimized() {
@@ -154,11 +160,12 @@ public final class ModMetrics {
             .append(", fastNearbyEntitySort=").append(config.optimizations.fastNearbyEntitySort)
             .append(", idleThrottle=").append(config.idleThrottle.enabled ? "every " + config.idleThrottle.sensorTickInterval + " ticks" : "off")
             .append(", stationarySorter=").append(config.isStationarySorterActive() ? "ON" : "off")
+            .append(", golemsLookAtPlayers=").append(config.isPlayerLookDisabled() ? "off" : "on")
             .append('\n');
         out.append(String.format(Locale.ROOT, "  golems ticked per server tick: %.1f%n", golemsPerTick));
         out.append(String.format(Locale.ROOT, "  sorting: %d stacks taken (%.1f/min), %d stacks placed (%.1f/min)%n",
             stacksTaken, stacksTaken / minutes, stacksPlaced, stacksPlaced / minutes));
-        out.append(String.format(Locale.ROOT, "  player-look scans: %d skipped, %d run%n", lookScansSkipped, lookScansRun));
+        out.append(String.format(Locale.ROOT, "  player-look scans: %d skipped, %d run, %d disabled by config%n", lookScansSkipped, lookScansRun, lookDisabled));
         out.append(String.format(Locale.ROOT, "  nearby-entity sorts optimized: %d%n", sensorSortsOptimized));
         out.append(String.format(Locale.ROOT, "  idle sensor ticks skipped: %d%n", idleSensorTicksSkipped));
         out.append(String.format(Locale.ROOT, "  stationary: %d travel skipped, %d cramming skipped%n", stationaryTravelSkipped, stationaryCrammingSkipped));

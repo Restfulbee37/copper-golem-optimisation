@@ -26,6 +26,7 @@ public final class CopperGolemModConfig {
     public Optimizations optimizations = new Optimizations();
     public IdleThrottle idleThrottle = new IdleThrottle();
     public StationarySorter stationarySorter = new StationarySorter();
+    public Behavior behavior = new Behavior();
     public Metrics metrics = new Metrics();
 
     /** Optimizations that produce the same result as vanilla, only computed more cheaply. */
@@ -65,6 +66,13 @@ public final class CopperGolemModConfig {
         public double maxHorizontalVelocitySquared = 0.0025D;
     }
 
+    /** Opt-in changes to cosmetic golem behavior. Defaults are vanilla. */
+    public static final class Behavior {
+        public String _warning = "BEHAVIOR-CHANGING. Defaults match vanilla. golemsLookAtPlayers=false stops copper golems turning their heads toward nearby players (purely cosmetic; sorting is unaffected) and skips the work of looking for players.";
+        /** Vanilla golems sometimes turn to look at a player within 6 blocks. False turns that off entirely. */
+        public boolean golemsLookAtPlayers = true;
+    }
+
     public static final class Metrics {
         /** Log a status summary every N seconds. 0 disables periodic logging. */
         public int logIntervalSeconds = 0;
@@ -75,6 +83,11 @@ public final class CopperGolemModConfig {
         CopperGolemModConfig copy = GSON.fromJson(GSON.toJson(this), CopperGolemModConfig.class);
         copy.enabled = enabled;
         return copy;
+    }
+
+    /** True when golems should never look at players (mod enabled and the behavior switched off). */
+    public boolean isPlayerLookDisabled() {
+        return enabled && !behavior.golemsLookAtPlayers;
     }
 
     public boolean isStationarySorterActive() {
@@ -133,6 +146,9 @@ public final class CopperGolemModConfig {
         if (stationarySorter == null) {
             stationarySorter = defaults.stationarySorter;
         }
+        if (behavior == null) {
+            behavior = defaults.behavior;
+        }
         if (metrics == null) {
             metrics = defaults.metrics;
         }
@@ -140,6 +156,7 @@ public final class CopperGolemModConfig {
         optimizations._comment = defaults.optimizations._comment;
         idleThrottle._comment = defaults.idleThrottle._comment;
         stationarySorter._warning = defaults.stationarySorter._warning;
+        behavior._warning = defaults.behavior._warning;
 
         idleThrottle.sensorTickInterval = clamp(idleThrottle.sensorTickInterval, 1, 20);
         stationarySorter.minStationaryTicks = clamp(stationarySorter.minStationaryTicks, 1, 20 * 60);

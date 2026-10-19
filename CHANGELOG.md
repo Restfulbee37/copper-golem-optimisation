@@ -7,6 +7,13 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+### Added
+- `behavior.golemsLookAtPlayers` config option (default `true`, vanilla). Set it
+  to `false` to stop copper golems turning to look at nearby players. This is
+  cosmetic only and doesn't affect sorting. `/cgp status` shows the setting and
+  how often looking was skipped because of it.
+- JUnit tests for config loading (old files, the new option, broken files).
+
 ## [0.3.0+26.1] - 2026-10-19
 
 First release for Minecraft 26.1, and the release that adds the `/cgp bench`
