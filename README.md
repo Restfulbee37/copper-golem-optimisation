@@ -141,6 +141,8 @@ Results are also saved as JSON in `copper_golem_mod/benchmarks/` in the server f
 | Mod on | 46.0 ms | 20.0 |
 | Mod on + Lithium | 36.4 ms | 20.0 |
 
+Every commit is also checked automatically. In-game tests confirm golems still behave like vanilla, and a benchmark runs on a copy of a real 865-golem farm, mod on vs off. See [TESTING.md](TESTING.md#automated-tests-every-commit).
+
 ## Compatibility
 
 - **Lithium**: compatible and recommended. Tested with Lithium 0.21.4 on Minecraft 1.21.11: no mixin conflicts, every optimization stays active, and the improvements add up.

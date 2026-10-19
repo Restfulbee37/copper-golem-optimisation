@@ -1,8 +1,12 @@
 # CI/CD for CopperGolemMod
 #
-# Branches and merge requests: build the mod and keep the jar as a job artifact.
-# Tags v<mod version>+<minecraft version>: also publish the jar to the package
-# registry and create a GitLab Release from the matching CHANGELOG.md section.
+# Every commit and merge request:
+#   build                 compile, unit tests, jar (job artifact)
+#   gametest:correctness  in-game tests: golems behave like vanilla under every config
+#   gametest:workload     standard workload benchmark on a copy of a real farm (mod on vs off)
+# Tags v<mod version>+<minecraft version>: additionally publish the jar to the package
+# registry and create a GitLab Release from the matching CHANGELOG.md section,
+# only if all of the above passed.
 # Release asset paths can't contain '+', so assets use fixed names, which also
 # gives a stable link: /-/releases/permalink/latest/downloads/copper_golem_mod.jar
 
@@ -17,6 +21,7 @@ workflow:
 
 stages:
   - build
+  - test
   - publish
 
 variables:
@@ -24,8 +29,8 @@ variables:
   GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle-home"
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
-build:
-  stage: build
+# Shared settings for every job that runs Gradle.
+.gradle:
   image: eclipse-temurin:25-jdk
   interruptible: true
   cache:
@@ -37,9 +42,17 @@ build:
       - .gradle-home/caches/
       - .gradle-home/wrapper/
       - .gradle/loom-cache/
-  script:
+  before_script:
     - chmod +x gradlew
-    - ./gradlew build --console=plain --stacktrace
+    # Record the machine the results came from (the workload numbers depend on it).
+    - echo "CPUs $(nproc), $(awk '/MemTotal/ {printf "%.1f GB RAM", $2/1048576}' /proc/meminfo), $(uname -m)"
+
+build:
+  extends: .gradle
+  stage: build
+  script:
+    # The in-game tests run in their own jobs below.
+    - ./gradlew build -x runGameTest --console=plain --stacktrace
     - MOD_VERSION="$(./gradlew -q printVersion --console=plain)"
     - MC_VERSION="${MOD_VERSION#*+}"
     - echo "Built version $MOD_VERSION (Minecraft $MC_VERSION)"
@@ -55,7 +68,39 @@ build:
       - build/libs/*.jar
     reports:
       dotenv: build.env
+      junit: build/test-results/test/*.xml
     expire_in: 30 days
+
+gametest:correctness:
+  extends: .gradle
+  stage: test
+  needs: []
+  script:
+    - ./gradlew runGameTest -Pgametest.filter='copper_golem_mod_test:correctness_tests_*' --console=plain --stacktrace
+  artifacts:
+    when: always
+    paths:
+      - build/run/gameTest/logs/
+    reports:
+      junit: build/test-results/gameTest/*.xml
+    expire_in: 30 days
+
+gametest:workload:
+  extends: .gradle
+  stage: test
+  needs: []
+  timeout: 3h
+  script:
+    - ./gradlew runGameTest -Pgametest.filter='copper_golem_mod_test:workload_benchmark_*' --console=plain --stacktrace
+  artifacts:
+    when: always
+    name: "workload-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - build/run/gameTest/copper_golem_mod/workload/
+      - build/run/gameTest/logs/
+    reports:
+      junit: build/test-results/gameTest/*.xml
+    expire_in: 90 days
 
 release:
   stage: publish
@@ -63,6 +108,10 @@ release:
   needs:
     - job: build
       artifacts: true
+    - job: gametest:correctness
+      artifacts: false
+    - job: gametest:workload
+      artifacts: false
   rules:
     - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
   script:
