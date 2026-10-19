@@ -56,6 +56,12 @@ This does change behavior. Stationary golems take much less cramming damage and 
 }
 ```
 
+### Behavior options (vanilla by default)
+
+| Option | What it does |
+| --- | --- |
+| `behavior.golemsLookAtPlayers` | `true` (default) is vanilla: golems sometimes turn to look at a player within 6 blocks. `false` turns this off completely. It's purely cosmetic, so sorting is unaffected, and it also removes the remaining cost of golems looking for players when you stand inside a large farm. |
+
 ## Config
 
 `config/copper_golem_mod.json` is created on first start. Missing options get their defaults, and the file is rewritten on every load so new options appear. If the file can't be parsed, the mod falls back to defaults and keeps the broken file as `copper_golem_mod.json.bad`.
@@ -70,6 +76,9 @@ This does change behavior. Stationary golems take much less cramming damage and 
   "idleThrottle": {
     "enabled": true,
     "sensorTickInterval": 4
+  },
+  "behavior": {
+    "golemsLookAtPlayers": true
   },
   "stationarySorter": {
     "enabled": false,

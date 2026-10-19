@@ -37,6 +37,8 @@ public final class GolemOptimizations {
      * is golems x golems type checks per tick, and it almost never finds anything. A match requires a player
      * within {@code maxDistance}, so when no player in the world is that close the scan cannot succeed and is
      * skipped. Otherwise this runs the exact vanilla logic, including the random look interval.
+     *
+     * <p>If {@code behavior.golemsLookAtPlayers} is false, the behavior never starts at all (opt-in, not vanilla).
      */
     @SuppressWarnings("deprecation") // SetEntityLookTargetSometimes is deprecated upstream but still what vanilla uses here.
     public static BehaviorControl<LivingEntity> createLookAtPlayerTask(float maxDistance, UniformInt interval) {
@@ -47,6 +49,10 @@ public final class GolemOptimizations {
             i -> i.group(i.absent(MemoryModuleType.LOOK_TARGET), i.present(MemoryModuleType.NEAREST_VISIBLE_LIVING_ENTITIES))
                 .apply(i, (lookTarget, nearestEntities) -> (level, body, timestamp) -> {
                     CopperGolemModConfig config = CopperGolemMod.config();
+                    if (config.isPlayerLookDisabled()) {
+                        CopperGolemMod.metrics().lookDisabled();
+                        return false;
+                    }
                     if (config.enabled && config.optimizations.fastPlayerLookCheck && !isAnyPlayerWithin(level, body, maxDistanceSquared)) {
                         CopperGolemMod.metrics().lookScanSkipped();
                         return false;
