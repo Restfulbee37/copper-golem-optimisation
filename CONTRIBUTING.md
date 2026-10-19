@@ -5,7 +5,8 @@
 Requirements: JDK 21. Everything else is downloaded by Gradle.
 
 ```bash
-./gradlew build        # builds build/libs/copper_golem_mod-<version>.jar
+./gradlew build        # builds build/libs/copper_golem_mod-<version>.jar and runs the tests
+./gradlew test         # JUnit tests only (run inside a Fabric environment via fabric-loader-junit)
 ./gradlew runServer    # dev server in ./run (accept the EULA in run/eula.txt first)
 ./gradlew genSources   # decompiled, Yarn-mapped Minecraft sources for reading vanilla code
 ```
