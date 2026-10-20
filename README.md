@@ -3,7 +3,7 @@
 A Fabric mod that cuts the server tick cost of copper golems, especially in dense sorting farms, without changing how they sort.
 
 - Minecraft `26.1` (any 26.1.x), Fabric Loader `0.19.5`+, Fabric API `0.145.1+26.1`+, Java 25
-- Minecraft 1.21.11 is supported by the `+1.21.11` releases, maintained on the `mc/1.21.11` branch.
+- Minecraft 1.21.11 is supported by the `+1.21.11` releases, maintained on the `mc/1.21.11` branch. See [Supported versions](#supported-versions) for which versions get updates and for how long.
 - Server-side logic only. Clients don't need it, and it also works in singleplayer.
 
 ## Install
@@ -13,6 +13,45 @@ A Fabric mod that cuts the server tick cost of copper golems, especially in dens
 3. Start the server. The defaults are safe; see [Config](#config) for options.
 
 Each release also has a `.sha256` file for checking the download.
+
+## Supported versions
+
+Every Minecraft release from 1.21.11 on gets its own build, even if a newer one follows soon after. New features are built for the newest version first.
+
+- **Feature updates**: new features and optimizations, plus bug fixes.
+- **Bug fixes**: bug and crash fixes for as long as the version is supported, which is until about 3 months after its feature updates end.
+- **Unsupported** after that. Its releases stay available to download.
+
+| Minecraft | Status | Releases | Branch |
+| --- | --- | --- | --- |
+| 26.4 | Pending: Minecraft 26.4 isn't released yet. Becomes the feature version once it's supported | | |
+| 26.3 | Planned: feature updates until 26.4 is supported, then bug fixes | | |
+| 26.2 | Planned next: feature updates until 26.3 is supported, then bug fixes | | |
+| 26.1.x | **Feature updates** until 26.3 is supported, then bug fixes | `+26.1` | `main` |
+| 1.21.11 | **Feature updates** until 0.6.0, then bug fixes | `+1.21.11` | `mc/1.21.11` |
+
+The timeline below shows the same plan; the red line marks today. 26.4 is grey because Minecraft hasn't released it yet. Dates in the future are estimates, and the table above is what counts.
+
+```mermaid
+gantt
+    dateFormat YYYY-MM-DD
+    axisFormat %b %Y
+    section 1.21.11
+        Feature updates : 2026-10-12, 2026-10-24
+        Bug fixes       : active, 2026-10-12, 2027-01-24
+    section 26.1
+        Feature updates : 2026-10-19, 2026-12-01
+        Bug fixes       : active, 2026-10-19, 2027-03-01
+    section 26.2
+        Feature updates : 2026-10-21, 2026-12-01
+        Bug fixes       : active, 2026-10-21, 2027-03-01
+    section 26.3
+        Feature updates : 2026-12-01, 2027-01-12
+        Bug fixes       : active, 2026-12-01, 2027-04-12
+    section 26.4
+        Feature updates (pending) : done, 2027-01-12, 2027-02-23
+        Bug fixes (pending)       : done, 2027-01-12, 2027-05-23
+```
 
 ## Why golem farms lag
 

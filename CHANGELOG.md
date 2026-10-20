@@ -19,6 +19,8 @@ build metadata (`<mod version>+<Minecraft version>`).
 - `tools/extract_farm.py` to copy a farm from any world into the benchmark.
 - `CopperGolemMod.setConfigOverride` for applying a config in memory (used by
   the tests).
+- Supported versions section in the README: which Minecraft versions get
+  feature updates or bug fixes, and for how long.
 
 ## [0.4.0+26.1] - 2026-10-19
 

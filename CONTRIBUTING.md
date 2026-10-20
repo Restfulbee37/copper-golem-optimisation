@@ -18,14 +18,15 @@ Requirements: any JDK 17+ to start Gradle. Minecraft 26.1 needs Java 25; Gradle 
 2. On a `port/mc-<version>` branch, update `gradle.properties` (Minecraft, Loader, Fabric API, Loom), plus the Gradle wrapper and Java version if the new Minecraft needs them. Check [fabricmc.net/develop](https://fabricmc.net/develop) and the matching branch of [fabric-example-mod](https://github.com/FabricMC/fabric-example-mod).
 3. Run `./gradlew genSources` and compare the vanilla code each mixin targets with the previous version. The optimizations assume vanilla behavior (see the comments in `GolemOptimizations`), so check the logic, not just the names.
 4. Port the in-game tests in `src/gametest` too: the GameTest API and its names change between versions. `TestSupport.isStationary` reads the field `copperGolemMod$stationary` that `CopperGolemMixin` adds, so keep that name or update both. `./gradlew runGameTest` then confirms every mixin applies (they are `require = 1`) and that golems still behave like vanilla.
-5. Add a `mc::<version>` label and open the merge request.
+5. Update [Supported versions](README.md#supported-versions) in the README: the new version becomes the feature version and the previous one moves to bug fixes.
+6. Add a `mc::<version>` label and open the merge request.
 
 ## Branches
 
 | Branch | Purpose |
 | --- | --- |
 | `main` | Development for the newest supported Minecraft version. Protected; always buildable. |
-| `mc/<minecraft version>` | Maintenance branch for an older Minecraft version, e.g. `mc/1.21.11`. Created when `main` moves to a new Minecraft version. |
+| `mc/<minecraft version>` | Maintenance branch for an older Minecraft version, e.g. `mc/1.21.11`. Created when `main` moves to a new Minecraft version. Gets bug fixes for as long as [Supported versions](README.md#supported-versions) says. |
 | `feature/<name>`, `fix/<name>` | Short-lived work branches, merged through a merge request. |
 
 Merge requests need a passing pipeline. Squash commits on merge if the branch history is noisy.
@@ -51,6 +52,7 @@ Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+26.1`.
    ```
 6. The tag pipeline checks that the tag matches the version, builds the jar, uploads it to the package registry and creates the GitLab Release with the changelog section as its notes and the milestone attached.
 7. Close the milestone.
+8. If a Minecraft version changed status (a new port, the last feature release for a version, or the end of its bug fixes), update [Supported versions](README.md#supported-versions) on `main`: the table, and the timeline with the real dates in place of estimates.
 
 Tags matching `v*` are protected and can only be created by maintainers.
 
