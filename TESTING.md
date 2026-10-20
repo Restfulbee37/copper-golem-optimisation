@@ -1,5 +1,44 @@
 # CopperGolemMod testing
 
+## Automated tests (every commit)
+
+Every pipeline runs three jobs. A merge request can only be merged when all three pass, and a release tag is only published when all three pass.
+
+| Job | What it checks | Typical time |
+| --- | --- | --- |
+| `build` | Compiles, runs the JUnit tests (benchmark logic, config loading) and builds the jar | a few minutes |
+| `gametest:correctness` | 13 in-game tests on a headless test server. Golems sort every item into the right chest (open area and trapped cell), look at nearby players, and keep vanilla timings, under the configs mod off, mod on, stationary sorter and look disabled. Also checks that the faster entity sort gives exactly vanilla's order. | a few minutes |
+| `gametest:workload` | The standard workload benchmark: a copy of the real stress-test farm (865 golems, 326 villagers, 774 chests) sorts a fixed item set four times, mod on, off, off, on. Fails if any item is lost or duplicated, if sorting is more than 5% slower (T90: time until 90% of items are sorted) or leaves more items unsorted with the mod on, or if the mod gives no measurable MSPT gain. | 10-60 min, depending on the machine |
+
+Results:
+
+- Test results appear on each merge request and pipeline (the **Tests** tab).
+- The workload job keeps its report as a downloadable artifact (`build/run/gameTest/copper_golem_mod/workload/workload-*.json`) for 90 days: T50/T90/T99 sorting times and a sorting curve, MSPT mean/p95, golem cost, item counts and where any unsorted items ended up, for every phase, plus the verdict. It also records the machine (CPU count, memory) the numbers came from. Only compare numbers from the same machine.
+
+### Running them locally
+
+```bash
+./gradlew runGameTest                                                         # everything (also part of ./gradlew build)
+./gradlew runGameTest -Pgametest.filter='copper_golem_mod_test:correctness_tests_*'
+./gradlew runGameTest -Pgametest.filter='copper_golem_mod_test:workload_benchmark_*'
+./gradlew runGameTest -Pgametest.filter='copper_golem_mod_test:workload_benchmark_*' -Pworkload.stacksPerInput=8   # heavier workload
+```
+
+The test server is headless, needs no world or EULA file, and writes everything under `build/run/gameTest/`.
+
+### The workload farm
+
+The farm is stored in `src/gametest/resources/copper_golem_mod_test/workload/farm.json`. It was copied from the stress-test world with `tools/extract_farm.py`, which reads a world folder (it never modifies it) and writes every block, golem and villager in a box, with each chest classed as an input (copper chest) or an output (holding a marker item). To use a rebuilt or different farm:
+
+```bash
+python3 tools/extract_farm.py --world /path/to/world --box 46,-61,-48,72,-33,-15 \
+    --out src/gametest/resources/copper_golem_mod_test/workload/farm.json
+```
+
+Each run fills the input chest of every cell the farm actually uses with 8 stacks of the item types its neighbouring output chests already hold. Cells whose chests are all empty aren't fed (the real farm doesn't use them either), but their golems are still there and still cost tick time. Golems are respawned at their original positions for every phase.
+
+## Manual testing on a server
+
 Always test on a copy of your world.
 
 For every run, keep the `/cgp bench` JSON file. It records the Minecraft, mod and Java versions, other installed mods (e.g. Lithium), the config and every measurement. Add the golem count, farm design and any Spark profile links.

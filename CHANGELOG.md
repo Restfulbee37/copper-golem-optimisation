@@ -7,6 +7,19 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+### Added
+- Automated in-game tests (Fabric GameTest) that run on every commit. They
+  check that golems still sort every item into the right chest, look at nearby
+  players and keep vanilla timings under every config, and that the faster
+  entity sort gives exactly vanilla's order.
+- Standard workload benchmark on every commit: a copy of a real 865-golem
+  farm with its villager floor sorts a fixed item set with the mod on and off.
+  The pipeline fails on lost or duplicated items, slower sorting, or no MSPT
+  gain.
+- `tools/extract_farm.py` to copy a farm from any world into the benchmark.
+- `CopperGolemMod.setConfigOverride` for applying a config in memory (used by
+  the tests).
+
 ## [0.4.0+1.21.11] - 2026-10-19
 
 Adds an opt-in switch to stop copper golems looking at players.

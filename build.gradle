@@ -42,6 +42,39 @@ test {
     useJUnitPlatform()
 }
 
+// In-game tests (Fabric GameTest), in src/gametest. `./gradlew runGameTest` starts a headless test server, runs every
+// test and exits non-zero if one fails; `check` (and so `build`) depends on it. Server game tests run in Fabric's
+// test mode, which needs no EULA file; client game tests are not used.
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = "copper_golem_mod_test"
+        enableGameTests = true
+        enableClientGameTests = false
+    }
+}
+
+loom {
+    runs {
+        named("gameTest") {
+            // The workload benchmark runs ~1,200 mobs; give the test server room.
+            vmArg "-Xmx${project.findProperty("gametest.maxHeap") ?: "4G"}"
+            // JUnit-style results that GitLab shows on merge requests.
+            property "fabric-api.gametest.report-file", project.layout.buildDirectory.file("test-results/gameTest/TEST-gametest.xml").get().asFile.absolutePath
+            // Optional test selection, e.g. -Pgametest.filter=copper_golem_mod_test:correctness_tests_*
+            def filter = project.findProperty("gametest.filter")
+            if (filter) {
+                property "fabric-api.gametest.filter", filter.toString()
+            }
+            // Optional workload size override, e.g. -Pworkload.stacksPerInput=8
+            def stacks = project.findProperty("workload.stacksPerInput")
+            if (stacks) {
+                property "copper_golem_mod_test.workload.stacksPerInput", stacks.toString()
+            }
+        }
+    }
+}
+
 processResources {
     def expansions = [
         version          : project.version,
