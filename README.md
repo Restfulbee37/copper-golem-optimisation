@@ -27,7 +27,7 @@ Every Minecraft release from 1.21.11 on gets its own build, even if a newer one 
 | 26.4 | TBD, once Minecraft 26.4 is released | | |
 | 26.3 | Planned: becomes the feature version, until 26.4 | | |
 | 26.2 | Planned next: feature updates until 26.3 is supported, then bug fixes | | |
-| 26.1.x | **Feature updates** until 0.6.0, then bug fixes | `+26.1` | `main` |
+| 26.1.x | **Feature updates** until 26.3 is supported, then bug fixes | `+26.1` | `main` |
 | 1.21.11 | **Feature updates** until 0.6.0, then bug fixes | `+1.21.11` | `mc/1.21.11` |
 
 The timeline below shows the same plan; the red line marks today. Dates in the future are estimates, and the table above is what counts.
@@ -40,14 +40,14 @@ gantt
         Feature updates : 2026-10-12, 2026-10-24
         Bug fixes       : active, 2026-10-12, 2027-01-24
     section 26.1
-        Feature updates : 2026-10-19, 2026-10-24
-        Bug fixes       : active, 2026-10-19, 2027-01-24
+        Feature updates : 2026-10-19, 2026-11-11
+        Bug fixes       : active, 2026-10-19, 2027-02-11
     section 26.2
-        Feature updates : 2026-10-21, 2026-10-28
-        Bug fixes       : active, 2026-10-21, 2027-01-28
+        Feature updates : 2026-10-21, 2026-11-11
+        Bug fixes       : active, 2026-10-21, 2027-02-11
     section 26.3
-        Feature updates (until 26.4, TBD) : 2026-10-28, 2027-01-31
-        Bug fixes (TBD)                   : active, 2026-10-28, 2027-03-31
+        Feature updates (until 26.4, TBD) : 2026-11-11, 2027-02-28
+        Bug fixes (TBD)                   : active, 2026-11-11, 2027-04-30
 ```
 
 ## Why golem farms lag
