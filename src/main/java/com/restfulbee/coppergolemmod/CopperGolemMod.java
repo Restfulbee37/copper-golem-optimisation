@@ -25,7 +25,9 @@ public final class CopperGolemMod implements ModInitializer {
 
     /** The config as loaded from the file. */
     private static CopperGolemModConfig loadedConfig = new CopperGolemModConfig();
-    /** The config the optimizations read: the loaded one, or an in-memory copy while a benchmark toggles the mod. */
+    /** An in-memory replacement for the loaded config, set by automated tests; null when unused. */
+    private static CopperGolemModConfig configOverride;
+    /** The config the optimizations read: the base config, or an in-memory copy while a benchmark toggles the mod. */
     private static volatile CopperGolemModConfig config = loadedConfig;
 
     // Server thread only.
@@ -36,7 +38,7 @@ public final class CopperGolemMod implements ModInitializer {
     @Override
     public void onInitialize() {
         loadedConfig = CopperGolemModConfig.load(CONFIG_PATH, LOGGER);
-        config = loadedConfig;
+        refreshEffectiveConfig();
 
         ServerTickEvents.START_SERVER_TICK.register(server -> tickStartNanos = System.nanoTime());
         ServerTickEvents.END_SERVER_TICK.register(server -> {
@@ -57,6 +59,21 @@ public final class CopperGolemMod implements ModInitializer {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> registerCommands(dispatcher));
 
         LOGGER.info("CopperGolemMod loaded (enabled={}, stationarySorter={})", config.enabled, config.isStationarySorterActive() ? "ON" : "off");
+    }
+
+    /**
+     * Replaces the loaded config in memory (null restores it). Used by the automated GameTests to run golems under
+     * specific settings; never written to the config file. A running {@code /cgp bench} still toggles
+     * {@code enabled} on top of it.
+     */
+    public static void setConfigOverride(CopperGolemModConfig override) {
+        configOverride = override;
+        refreshEffectiveConfig();
+    }
+
+    /** The config in use before any benchmark toggling: the test override if set, otherwise the loaded file. */
+    public static CopperGolemModConfig baseConfig() {
+        return configOverride != null ? configOverride : loadedConfig;
     }
 
     public static CopperGolemModConfig config() {
@@ -81,7 +98,7 @@ public final class CopperGolemMod implements ModInitializer {
                     stopBenchmark("the config was reloaded");
                 }
                 loadedConfig = CopperGolemModConfig.load(CONFIG_PATH, LOGGER);
-                config = loadedConfig;
+                refreshEffectiveConfig();
                 context.getSource().sendSuccess(() -> Component.literal("CopperGolemMod config reloaded (enabled=" + config.enabled
                     + ", stationarySorter=" + (config.isStationarySorterActive() ? "ON" : "off") + ")."), true);
                 return 1;
@@ -130,10 +147,10 @@ public final class CopperGolemMod implements ModInitializer {
             source.sendFailure(Component.literal("A CopperGolemMod benchmark is already running. " + benchmark.progress() + " Use /cgp bench stop to abort it."));
             return 0;
         }
-        benchmark = new Benchmark(kind, minutes * 60 * 20, phaseSeconds * 20, loadedConfig.stationarySorter.minStationaryTicks);
+        benchmark = new Benchmark(kind, minutes * 60 * 20, phaseSeconds * 20, baseConfig().stationarySorter.minStationaryTicks);
         benchmarkRequester = source;
         METRICS.setBenchmarkTiming(true);
-        applyBenchmarkOverride();
+        refreshEffectiveConfig();
 
         String what = kind == Benchmark.Kind.AB
             ? "A/B benchmark: the mod is switched on and off in memory (the config file is not changed)"
@@ -150,7 +167,7 @@ public final class CopperGolemMod implements ModInitializer {
             if (benchmark.isFinished()) {
                 finishBenchmark(null);
             } else {
-                applyBenchmarkOverride();
+                refreshEffectiveConfig();
             }
         }
     }
@@ -166,12 +183,12 @@ public final class CopperGolemMod implements ModInitializer {
         benchmark = null;
         benchmarkRequester = null;
         METRICS.setBenchmarkTiming(false);
-        config = loadedConfig;
+        refreshEffectiveConfig();
 
         String report;
         try {
             report = (stoppedBecause == null ? "" : "Benchmark stopped early because " + stoppedBecause + ". Partial results:\n")
-                + finished.finishAndReport(loadedConfig, Benchmark.defaultOutputDir());
+                + finished.finishAndReport(baseConfig(), Benchmark.defaultOutputDir());
         } catch (RuntimeException exception) {
             // A benchmark must never take the server down.
             LOGGER.error("CopperGolemMod benchmark failed to produce a report", exception);
@@ -184,9 +201,10 @@ public final class CopperGolemMod implements ModInitializer {
         }
     }
 
-    private static void applyBenchmarkOverride() {
-        Boolean enabled = benchmark.currentEnabledOverride();
-        config = enabled == null ? loadedConfig : loadedConfig.withEnabled(enabled);
+    private static void refreshEffectiveConfig() {
+        CopperGolemModConfig base = baseConfig();
+        Boolean enabled = benchmark == null ? null : benchmark.currentEnabledOverride();
+        config = enabled == null ? base : base.withEnabled(enabled);
     }
 
     private static int setProfiling(CommandContext<CommandSourceStack> context, boolean enabled) {

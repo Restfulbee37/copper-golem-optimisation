@@ -7,6 +7,7 @@ Requirements: any JDK 17+ to start Gradle. Minecraft 26.1 needs Java 25; Gradle 
 ```bash
 ./gradlew build        # builds build/libs/copper_golem_mod-<version>.jar and runs the tests
 ./gradlew test         # JUnit tests only (run inside a Fabric environment via fabric-loader-junit)
+./gradlew runGameTest  # in-game tests and the workload benchmark (see TESTING.md)
 ./gradlew runServer    # dev server in ./run (accept the EULA in run/eula.txt first)
 ./gradlew genSources   # decompiled Minecraft sources (official Mojang names) for reading vanilla code
 ```
@@ -16,7 +17,7 @@ Requirements: any JDK 17+ to start Gradle. Minecraft 26.1 needs Java 25; Gradle 
 1. Create the maintenance branch for the version `main` currently targets, e.g. `git branch mc/1.21.11 main && git push origin mc/1.21.11`.
 2. On a `port/mc-<version>` branch, update `gradle.properties` (Minecraft, Loader, Fabric API, Loom), plus the Gradle wrapper and Java version if the new Minecraft needs them. Check [fabricmc.net/develop](https://fabricmc.net/develop) and the matching branch of [fabric-example-mod](https://github.com/FabricMC/fabric-example-mod).
 3. Run `./gradlew genSources` and compare the vanilla code each mixin targets with the previous version. The optimizations assume vanilla behavior (see the comments in `GolemOptimizations`), so check the logic, not just the names.
-4. Confirm every mixin applies (they are `require = 1`, so a missed target crashes on startup) by starting a server with copper golems.
+4. Port the in-game tests in `src/gametest` too: the GameTest API and its names change between versions. `TestSupport.isStationary` reads the field `copperGolemMod$stationary` that `CopperGolemMixin` adds, so keep that name or update both. `./gradlew runGameTest` then confirms every mixin applies (they are `require = 1`) and that golems still behave like vanilla.
 5. Add a `mc::<version>` label and open the merge request.
 
 ## Branches
