@@ -19,7 +19,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.npc.villager.Villager;
@@ -187,7 +187,7 @@ public class WorkloadBenchmark {
             planFeed();
 
             for (FarmFixture.VillagerSpec spec : farm.villagers) {
-                Villager villager = helper.spawn(EntityType.VILLAGER, spec.pos());
+                Villager villager = helper.spawn(EntityTypes.VILLAGER, spec.pos());
                 var registries = level.registryAccess();
                 villager.setVillagerData(villager.getVillagerData()
                     .withProfession(registries, ResourceKey.create(Registries.VILLAGER_PROFESSION, Identifier.parse(spec.profession())))
@@ -266,7 +266,7 @@ public class WorkloadBenchmark {
                 container.clearContent();
             }
             markers.forEach((pos, marker) -> container(pos).setItem(0, marker.copy()));
-            golems = farm.golems.stream().map(pos -> helper.spawn(EntityType.COPPER_GOLEM, pos)).toList();
+            golems = farm.golems.stream().map(pos -> helper.spawn(EntityTypes.COPPER_GOLEM, pos)).toList();
 
             LOGGER.info("Workload phase {}/{} (mod {}): {} golems spawned, warming up", phase + 1, PHASE_MOD_ON.length, modOn ? "on" : "off", golems.size());
             stage = Stage.WARMUP;

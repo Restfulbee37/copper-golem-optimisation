@@ -5,6 +5,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.restfulbee.coppergolemmod.GolemOptimizations;
 import net.minecraft.util.valueproviders.UniformInt;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.behavior.BehaviorControl;
 import net.minecraft.world.entity.animal.golem.CopperGolemAi;
@@ -26,7 +27,7 @@ public abstract class CopperGolemAiMixin {
         )
     )
     private static BehaviorControl<LivingEntity> copperGolemMod$fastLookAtPlayer(EntityType<?> type, float maxDistance, UniformInt interval, Operation<BehaviorControl<LivingEntity>> original) {
-        if (type != EntityType.PLAYER) {
+        if (type != EntityTypes.PLAYER) {
             return original.call(type, maxDistance, interval);
         }
         return GolemOptimizations.createLookAtPlayerTask(maxDistance, interval);
