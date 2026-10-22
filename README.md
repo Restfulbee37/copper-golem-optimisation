@@ -43,8 +43,8 @@ gantt
         Feature updates : 2026-10-19, 2026-12-01
         Bug fixes       : active, 2026-10-19, 2027-03-01
     section 26.2
-        Feature updates : 2026-10-21, 2026-12-01
-        Bug fixes       : active, 2026-10-21, 2027-03-01
+        Feature updates : 2026-10-22, 2026-12-01
+        Bug fixes       : active, 2026-10-22, 2027-03-01
     section 26.3
         Feature updates : 2026-12-01, 2027-01-12
         Bug fixes       : active, 2026-12-01, 2027-04-12

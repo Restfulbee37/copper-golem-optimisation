@@ -7,6 +7,13 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+## [0.5.0+26.2] - 2026-10-22
+
+First release for Minecraft 26.2, with the same features as 0.5.0+26.1.
+
+Measured by the workload benchmark on the CI runner, with the mod on: MSPT down
+24% and golem time per tick down 41%, with sorting speed unchanged.
+
 ### Changed
 - Ported to Minecraft 26.2 (Fabric API 0.161.0+26.2). Builds for Minecraft
   26.1 continue on the `mc/26.1` branch.
