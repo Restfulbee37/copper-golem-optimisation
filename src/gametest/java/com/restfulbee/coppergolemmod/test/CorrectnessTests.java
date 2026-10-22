@@ -9,7 +9,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.sensing.NearestLivingEntitySensor;
@@ -112,11 +112,11 @@ public class CorrectnessTests {
             golemSpawns.add(at(5.5, 1, 5.5));
         }
 
-        Container inputChest = TestSupport.placeContainer(helper, input, Blocks.COPPER_CHEST,
+        Container inputChest = TestSupport.placeContainer(helper, input, Blocks.COPPER_CHEST.weathering().unaffected(),
             new ItemStack(Items.COBBLESTONE, 32), new ItemStack(Items.OAK_PLANKS, 32));
         Container cobblestoneOut = TestSupport.placeContainer(helper, cobblestoneChest, Blocks.CHEST, new ItemStack(Items.COBBLESTONE, 1));
         Container planksOut = TestSupport.placeContainer(helper, planksChest, Blocks.CHEST, new ItemStack(Items.OAK_PLANKS, 1));
-        List<CopperGolem> golems = golemSpawns.stream().map(pos -> helper.spawn(EntityType.COPPER_GOLEM, pos)).toList();
+        List<CopperGolem> golems = golemSpawns.stream().map(pos -> helper.spawn(EntityTypes.COPPER_GOLEM, pos)).toList();
 
         helper.succeedWhen(() -> {
             helper.assertTrue(inputChest.isEmpty(), "the input chest still has items");
@@ -154,7 +154,7 @@ public class CorrectnessTests {
     @SuppressWarnings("removal") // Mojang marks the mock-player helper for removal but has no replacement yet.
     private static void looksAtPlayer(GameTestHelper helper, boolean expectLook) {
         TestSupport.floor(helper, ARENA_SIZE, ARENA_SIZE);
-        CopperGolem golem = helper.spawn(EntityType.COPPER_GOLEM, at(3.5, 1, 6.5));
+        CopperGolem golem = helper.spawn(EntityTypes.COPPER_GOLEM, at(3.5, 1, 6.5));
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         Vec3 playerPos = helper.absoluteVec(at(6.5, 1, 6.5));
         player.snapTo(playerPos.x, playerPos.y, playerPos.z, 90.0F, 0.0F);
@@ -182,7 +182,7 @@ public class CorrectnessTests {
     @GameTest(environment = MOD_ON, structure = ARENA, maxTicks = 20)
     public void nearbyEntityListMatchesVanilla(GameTestHelper helper) throws ReflectiveOperationException {
         TestSupport.floor(helper, ARENA_SIZE, ARENA_SIZE);
-        CopperGolem golem = helper.spawn(EntityType.COPPER_GOLEM, at(6.5, 1, 6.5));
+        CopperGolem golem = helper.spawn(EntityTypes.COPPER_GOLEM, at(6.5, 1, 6.5));
 
         List<Vec3> spots = new ArrayList<>(List.of(
             // Equal distances, so the stable ordering of ties is checked.
@@ -193,7 +193,7 @@ public class CorrectnessTests {
         for (int i = 0; i < 24; i++) {
             spots.add(at(1 + random.nextInt(10) + 0.5, 1, 1 + random.nextInt(10) + 0.5));
         }
-        spots.forEach(spot -> helper.spawn(EntityType.ARMOR_STAND, spot));
+        spots.forEach(spot -> helper.spawn(EntityTypes.ARMOR_STAND, spot));
 
         Method doTick = NearestLivingEntitySensor.class.getDeclaredMethod("doTick", ServerLevel.class, LivingEntity.class);
         doTick.setAccessible(true);
@@ -234,7 +234,7 @@ public class CorrectnessTests {
     /** Puts a golem into a 100-tick "nothing to sort" cooldown and checks it ends after ~100 ticks either way. */
     private static void idleCooldownLength(GameTestHelper helper, boolean expectThrottle) {
         TestSupport.floor(helper, ARENA_SIZE, ARENA_SIZE);
-        CopperGolem golem = helper.spawn(EntityType.COPPER_GOLEM, at(6.5, 1, 6.5));
+        CopperGolem golem = helper.spawn(EntityTypes.COPPER_GOLEM, at(6.5, 1, 6.5));
         golem.getBrain().setMemory(MemoryModuleType.TRANSPORT_ITEMS_COOLDOWN_TICKS, 100);
 
         long[] endedAt = {-1};
@@ -273,7 +273,7 @@ public class CorrectnessTests {
             helper.setBlock(at(6, y, 5), Blocks.GLASS);
             helper.setBlock(at(6, y, 7), Blocks.GLASS);
         }
-        CopperGolem golem = helper.spawn(EntityType.COPPER_GOLEM, at(6.5, 2, 6.5));
+        CopperGolem golem = helper.spawn(EntityTypes.COPPER_GOLEM, at(6.5, 2, 6.5));
 
         boolean[] wasStationary = {false};
         double[] heightBeforeDrop = {0.0D};

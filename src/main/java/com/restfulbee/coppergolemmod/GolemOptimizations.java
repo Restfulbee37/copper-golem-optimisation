@@ -4,7 +4,7 @@ import it.unimi.dsi.fastutil.ints.IntArrays;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.valueproviders.UniformInt;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -29,7 +29,7 @@ public final class GolemOptimizations {
     }
 
     /**
-     * Drop-in replacement for {@code SetEntityLookTargetSometimes.create(EntityType.PLAYER, maxDistance, interval)}
+     * Drop-in replacement for {@code SetEntityLookTargetSometimes.create(EntityTypes.PLAYER, maxDistance, interval)}
      * as used by {@code CopperGolemAi}.
      *
      * <p>Vanilla runs this every tick for every golem without a look target, and each run walks the golem's
@@ -43,7 +43,7 @@ public final class GolemOptimizations {
     @SuppressWarnings("deprecation") // SetEntityLookTargetSometimes is deprecated upstream but still what vanilla uses here.
     public static BehaviorControl<LivingEntity> createLookAtPlayerTask(float maxDistance, UniformInt interval) {
         float maxDistanceSquared = maxDistance * maxDistance;
-        Predicate<LivingEntity> isPlayer = entity -> entity.is(EntityType.PLAYER);
+        Predicate<LivingEntity> isPlayer = entity -> entity.is(EntityTypes.PLAYER);
         SetEntityLookTargetSometimes.Ticker lookInterval = new SetEntityLookTargetSometimes.Ticker(interval);
         return BehaviorBuilder.create(
             i -> i.group(i.absent(MemoryModuleType.LOOK_TARGET), i.present(MemoryModuleType.NEAREST_VISIBLE_LIVING_ENTITIES))

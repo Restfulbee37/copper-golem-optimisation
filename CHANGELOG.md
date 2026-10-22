@@ -7,6 +7,10 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+### Changed
+- Ported to Minecraft 26.2 (Fabric API 0.161.0+26.2). Builds for Minecraft
+  26.1 continue on the `mc/26.1` branch.
+
 ## [0.5.0+26.1] - 2026-10-22
 
 Adds automated testing: in-game tests and a standard workload benchmark now run
