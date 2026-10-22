@@ -78,9 +78,14 @@ public final class CopperGolemModConfig {
         public int logIntervalSeconds = 0;
     }
 
+    /** A deep copy, so a changed config can be swapped in at once instead of edited while golems read it. */
+    public CopperGolemModConfig copy() {
+        return GSON.fromJson(GSON.toJson(this), CopperGolemModConfig.class);
+    }
+
     /** An in-memory copy with only {@code enabled} changed. Used by benchmarks; never saved. */
     public CopperGolemModConfig withEnabled(boolean enabled) {
-        CopperGolemModConfig copy = GSON.fromJson(GSON.toJson(this), CopperGolemModConfig.class);
+        CopperGolemModConfig copy = copy();
         copy.enabled = enabled;
         return copy;
     }
@@ -119,7 +124,8 @@ public final class CopperGolemModConfig {
         return config;
     }
 
-    public void save(Path path, Logger logger) {
+    /** Writes the config atomically. Returns false (and logs why) if it couldn't be written. */
+    public boolean save(Path path, Logger logger) {
         try {
             Path parent = path.getParent();
             if (parent != null) {
@@ -130,8 +136,10 @@ public final class CopperGolemModConfig {
                 GSON.toJson(this, writer);
             }
             Files.move(temp, path, StandardCopyOption.REPLACE_EXISTING);
+            return true;
         } catch (IOException exception) {
             logger.error("Failed to save CopperGolemMod config at {}", path, exception);
+            return false;
         }
     }
 
@@ -158,13 +166,23 @@ public final class CopperGolemModConfig {
         stationarySorter._warning = defaults.stationarySorter._warning;
         behavior._warning = defaults.behavior._warning;
 
-        idleThrottle.sensorTickInterval = clamp(idleThrottle.sensorTickInterval, 1, 20);
-        stationarySorter.minStationaryTicks = clamp(stationarySorter.minStationaryTicks, 1, 20 * 60);
-        stationarySorter.fullPhysicsTickInterval = clamp(stationarySorter.fullPhysicsTickInterval, 1, 200);
-        if (!(stationarySorter.maxHorizontalVelocitySquared >= 0.0D)) {
-            stationarySorter.maxHorizontalVelocitySquared = defaults.stationarySorter.maxHorizontalVelocitySquared;
+        // The same limits /cgp config enforces.
+        for (ConfigSettings.Setting setting : ConfigSettings.ALL) {
+            switch (setting) {
+                case ConfigSettings.Whole whole -> whole.set(this, clamp(whole.get(this), whole.min(), whole.max()));
+                case ConfigSettings.Decimal decimal -> {
+                    double value = decimal.get(this);
+                    if (!(value >= decimal.min())) {
+                        // Negative or NaN: not a usable limit at all, so fall back to the default.
+                        decimal.set(this, (Double) decimal.defaultValue());
+                    } else if (value > decimal.max()) {
+                        decimal.set(this, decimal.max());
+                    }
+                }
+                case ConfigSettings.Switch ignored -> {
+                }
+            }
         }
-        metrics.logIntervalSeconds = clamp(metrics.logIntervalSeconds, 0, 3600);
 
         if (stationarySorter.enabled && !stationarySorter.iUnderstandThisChangesCopperGolemBehavior) {
             logger.warn("stationarySorter.enabled is true but iUnderstandThisChangesCopperGolemBehavior is false; the stationary sorter stays off.");
