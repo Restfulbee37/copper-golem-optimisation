@@ -7,6 +7,20 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+### Added
+- `/cgp config` to see and change settings in game: `list`, `get <setting>`,
+  `set <setting> <value>` and `reset <setting>`. Changes apply at once, are
+  saved to the config file, and are reported to other operators and the server
+  log. Setting names and values tab-complete, and values outside the allowed
+  range are rejected. Settings can't be changed while a benchmark runs.
+- `/cgp accept-consequences`: accepts that the stationary sorter changes golem
+  behavior. Run it twice to confirm. `stationarySorter.enabled` can't be turned
+  on in game until it has been accepted.
+
+### Changed
+- The config file now caps `stationarySorter.maxHorizontalVelocitySquared` at
+  1.0 (values above are lowered to 1.0), the same limit `/cgp config` uses.
+
 ## [0.5.0+26.2] - 2026-10-22
 
 First release for Minecraft 26.2, with the same features as 0.5.0+26.1.
