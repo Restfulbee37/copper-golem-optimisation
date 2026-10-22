@@ -7,6 +7,16 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+## [0.5.0+26.1] - 2026-10-22
+
+Adds automated testing: in-game tests and a standard workload benchmark now run
+on every commit. The mod itself behaves exactly like 0.4.0, and the config is
+unchanged.
+
+Measured by the new workload benchmark on the CI runner (a copy of a real
+865-golem farm), with the mod on: MSPT 189.5 → 137.0 ms (−28%) and golem time
+per tick 120.2 → 67.2 ms (−44%), with sorting speed unchanged.
+
 ### Added
 - Automated in-game tests (Fabric GameTest) that run on every commit. They
   check that golems still sort every item into the right chest, look at nearby
