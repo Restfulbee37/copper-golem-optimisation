@@ -7,6 +7,17 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+## [0.6.0+1.21.11] - 2026-10-26
+
+Adds in-game configuration: operators can see and change every setting with
+`/cgp config` (with tab completion) instead of editing the config file, and
+turn on the stationary sorter with `/cgp accept-consequences`. Golem
+performance is unchanged from 0.5.0.
+
+This is the last feature release for Minecraft 1.21.11. From now on, 1.21.11
+gets bug and crash fixes until about 26 January 2027. New features go to
+Minecraft 26.x. See Supported versions in the README on `main`.
+
 ### Added
 - `/cgp config` to see and change settings in game: `list`, `get <setting>`,
   `set <setting> <value>` and `reset <setting>`. Changes apply at once, are
