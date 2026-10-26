@@ -1,6 +1,9 @@
 package com.restfulbee.coppergolemmod.test;
 
 import com.restfulbee.coppergolemmod.CopperGolemMod;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import com.restfulbee.coppergolemmod.ConfigSettings;
 import com.restfulbee.coppergolemmod.CopperGolemModConfig;
 import com.restfulbee.coppergolemmod.GolemOptimizations;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
@@ -29,6 +32,7 @@ import java.util.Random;
  * In-game correctness tests: the mod must not change what copper golems do, only how cheaply they do it.
  * Each behavior is checked under the relevant configs:
  * {@code mod_off} (vanilla), {@code mod_on} (defaults), {@code stationary_sorter} and {@code look_disabled}.
+ * The {@code /cgp config} commands are checked here too, in {@code config_commands}, which uses the real config file.
  */
 public class CorrectnessTests {
     private static final String ARENA = "copper_golem_mod_test:arena";
@@ -36,6 +40,8 @@ public class CorrectnessTests {
     private static final String MOD_ON = "copper_golem_mod_test:mod_on";
     private static final String STATIONARY = "copper_golem_mod_test:stationary_sorter";
     private static final String LOOK_DISABLED = "copper_golem_mod_test:look_disabled";
+    private static final String CONFIG_COMMANDS = "copper_golem_mod_test:config_commands";
+    private static final String CONSENT = "stationarySorter.iUnderstandThisChangesCopperGolemBehavior";
     /**
      * Golems search for chests up to 32 blocks away. Tests in the same batch run side by side only a few blocks
      * apart, so the arena is large (76x76) and every test is built around its middle: neighbouring tests' golems
@@ -293,5 +299,113 @@ public class CorrectnessTests {
                 "the golem is still at y=" + golem.getY() + " 50 ticks after its floor was removed (was " + heightBeforeDrop[0] + ")");
             helper.complete();
         });
+    }
+
+    // ---- /cgp config: changes apply at once and are saved, within limits, and never skip the consent step ----
+    // Each test does all its work in its first tick, so tests sharing the config file never interleave.
+
+    @GameTest(environment = CONFIG_COMMANDS, structure = ARENA, maxTicks = 20)
+    public void configSetAppliesAtOnceAndIsSaved(TestContext helper) {
+        CommandRunner op = new CommandRunner(helper);
+        op.restoringConfig(() -> {
+            op.run("cgp config reset idleThrottle.sensorTickInterval");
+            helper.assertEquals(1, op.run("cgp config set idleThrottle.sensorTickInterval 6"), "result of config set");
+            helper.assertTrue(op.replies().contains("idleThrottle.sensorTickInterval set to 6 (was 4)"), "unexpected reply: " + op.replies());
+            helper.assertEquals(6, CopperGolemMod.config().idleThrottle.sensorTickInterval, "sensorTickInterval in use");
+            helper.assertEquals("6", savedValue("idleThrottle.sensorTickInterval"), "sensorTickInterval in the config file");
+
+            op.run("cgp config get idleThrottle.sensorTickInterval");
+            helper.assertTrue(op.replies().startsWith("idleThrottle.sensorTickInterval = 6 (default 4, allowed 1 to 20)"), "unexpected reply: " + op.replies());
+            helper.assertEquals(ConfigSettings.ALL.size(), op.run("cgp config list"), "settings listed");
+
+            op.run("cgp config reset idleThrottle.sensorTickInterval");
+            helper.assertEquals(4, CopperGolemMod.config().idleThrottle.sensorTickInterval, "sensorTickInterval after reset");
+            helper.assertEquals("4", savedValue("idleThrottle.sensorTickInterval"), "sensorTickInterval in the file after reset");
+        });
+        helper.complete();
+    }
+
+    @GameTest(environment = CONFIG_COMMANDS, structure = ARENA, maxTicks = 20)
+    public void configTabCompletes(TestContext helper) {
+        CommandRunner op = new CommandRunner(helper);
+        List<String> settings = op.suggestions("cgp config set ");
+        helper.assertEquals(ConfigSettings.ALL.size(), settings.size(), "settings suggested for /cgp config set");
+        helper.assertEquals(List.of("idleThrottle.sensorTickInterval"), op.suggestions("cgp config set idleThrottle.s"), "completion of idleThrottle.s");
+        helper.assertEquals(List.of("false", "true"), op.suggestions("cgp config set enabled "), "values suggested for a switch");
+        List<String> numbers = op.suggestions("cgp config set idleThrottle.sensorTickInterval ");
+        helper.assertTrue(numbers.containsAll(List.of("4", "1", "20")), "values suggested for sensorTickInterval: " + numbers);
+        helper.complete();
+    }
+
+    @GameTest(environment = CONFIG_COMMANDS, structure = ARENA, maxTicks = 20)
+    public void configRejectsInvalidValues(TestContext helper) {
+        CommandRunner op = new CommandRunner(helper);
+        String fileBefore = CommandRunner.readConfigFile();
+        for (String command : List.of(
+            "cgp config set idleThrottle.sensorTickInterval 21",
+            "cgp config set idleThrottle.sensorTickInterval 0",
+            "cgp config set idleThrottle.sensorTickInterval four",
+            "cgp config set stationarySorter.maxHorizontalVelocitySquared -0.5",
+            "cgp config set enabled maybe",
+            "cgp config set noSuchSetting 1"
+        )) {
+            helper.assertTrue(op.rejects(command), "/" + command + " was accepted");
+        }
+        helper.assertEquals(fileBefore, CommandRunner.readConfigFile(), "config file after rejected commands");
+        helper.complete();
+    }
+
+    @GameTest(environment = CONFIG_COMMANDS, structure = ARENA, maxTicks = 20)
+    public void stationarySorterNeedsTwoStepConsent(TestContext helper) {
+        CommandRunner op = new CommandRunner(helper);
+        op.restoringConfig(() -> {
+            op.run("cgp config reset stationarySorter.enabled");
+            op.run("cgp config reset " + CONSENT);
+
+            helper.assertEquals(0, op.run("cgp config set stationarySorter.enabled true"), "enabling without consent");
+            helper.assertTrue(op.replies().contains("/cgp accept-consequences first"), "unexpected reply: " + op.replies());
+            helper.assertEquals(0, op.run("cgp config set " + CONSENT + " true"), "setting the consent flag directly");
+            helper.assertTrue(!CopperGolemMod.config().stationarySorter.enabled
+                && !CopperGolemMod.config().stationarySorter.iUnderstandThisChangesCopperGolemBehavior, "a refused command changed the config");
+
+            op.run("cgp accept-consequences");
+            helper.assertTrue(op.replies().contains("again within 60 seconds to confirm"), "unexpected reply: " + op.replies());
+            helper.assertTrue(!CopperGolemMod.config().stationarySorter.iUnderstandThisChangesCopperGolemBehavior, "accepted after one run");
+            op.run("cgp accept-consequences");
+            helper.assertTrue(CopperGolemMod.config().stationarySorter.iUnderstandThisChangesCopperGolemBehavior, "not accepted after confirming");
+            helper.assertEquals("true", savedValue(CONSENT), "consent in the config file");
+
+            helper.assertEquals(1, op.run("cgp config set stationarySorter.enabled true"), "enabling after consent");
+            helper.assertTrue(CopperGolemMod.config().isStationarySorterActive(), "the stationary sorter isn't active");
+            op.run("cgp config set " + CONSENT + " false");
+            helper.assertTrue(!CopperGolemMod.config().isStationarySorterActive(), "withdrawing consent left the stationary sorter on");
+        });
+        helper.complete();
+    }
+
+    @GameTest(environment = CONFIG_COMMANDS, structure = ARENA, maxTicks = 20)
+    public void configChangesAreRefusedWhileBenchmarking(TestContext helper) {
+        CommandRunner op = new CommandRunner(helper);
+        op.restoringConfig(() -> {
+            String fileBefore = CommandRunner.readConfigFile();
+            op.run("cgp bench current 1");
+            for (String command : List.of("cgp config set idleThrottle.sensorTickInterval 6",
+                "cgp config reset idleThrottle.sensorTickInterval", "cgp accept-consequences")) {
+                helper.assertEquals(0, op.run(command), "result of /" + command + " during a benchmark");
+                helper.assertTrue(op.replies().contains("benchmark is running"), "unexpected reply to /" + command + ": " + op.replies());
+            }
+            helper.assertEquals(fileBefore, CommandRunner.readConfigFile(), "config file during the benchmark");
+            op.run("cgp bench stop");
+        });
+        helper.complete();
+    }
+
+    /** A setting's value as written in the config file. */
+    private static String savedValue(String key) {
+        JsonElement value = JsonParser.parseString(CommandRunner.readConfigFile());
+        for (String part : key.split("\\.")) {
+            value = value.getAsJsonObject().get(part);
+        }
+        return value.getAsString();
     }
 }

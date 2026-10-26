@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import java.util.function.Consumer;
 
 public final class CopperGolemMod implements ModInitializer {
     public static final String MOD_ID = "copper_golem_mod";
@@ -80,6 +81,28 @@ public final class CopperGolemMod implements ModInitializer {
         return config;
     }
 
+    /** The config as loaded from (and saved to) the file, which {@code /cgp config} shows and changes. */
+    static CopperGolemModConfig loadedConfig() {
+        return loadedConfig;
+    }
+
+    static boolean isBenchmarkRunning() {
+        return benchmark != null;
+    }
+
+    /**
+     * Applies a change to a copy of the loaded config, saves it, and then swaps it in, so golems never see a
+     * half-made change. Returns false if the file couldn't be written; the change still applies until restart.
+     */
+    static boolean updateConfig(Consumer<CopperGolemModConfig> change) {
+        CopperGolemModConfig updated = loadedConfig.copy();
+        change.accept(updated);
+        boolean saved = updated.save(CONFIG_PATH, LOGGER);
+        loadedConfig = updated;
+        refreshEffectiveConfig();
+        return saved;
+    }
+
     public static ModMetrics metrics() {
         return METRICS;
     }
@@ -103,6 +126,8 @@ public final class CopperGolemMod implements ModInitializer {
                     + ", stationarySorter=" + (config.isStationarySorterActive() ? "ON" : "off") + ")."), true);
                 return 1;
             }))
+            .then(ConfigCommands.configCommand())
+            .then(ConfigCommands.acceptConsequencesCommand())
             .then(CommandManager.literal("profile")
                 .then(CommandManager.literal("on").executes(context -> setProfiling(context, true)))
                 .then(CommandManager.literal("off").executes(context -> setProfiling(context, false))))
