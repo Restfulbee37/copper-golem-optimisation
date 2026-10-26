@@ -28,7 +28,7 @@ Every Minecraft release from 1.21.11 on gets its own build, even if a newer one 
 | 26.3 | Planned: feature updates until 26.4 is supported, then bug fixes | | |
 | 26.2.x | **Feature updates** until 26.3 is supported, then bug fixes | `+26.2` | `main` |
 | 26.1.x | **Feature updates** until 26.3 is supported, then bug fixes | `+26.1` | `mc/26.1` |
-| 1.21.11 | **Feature updates** until 0.6.0, then bug fixes | `+1.21.11` | `mc/1.21.11` |
+| 1.21.11 | **Bug fixes** until about 26 January 2027 (0.6.0 was its last feature release) | `+1.21.11` | `mc/1.21.11` |
 
 The timeline below shows the same plan; the red line marks today. 26.4 is grey because Minecraft hasn't released it yet. Dates in the future are estimates, and the table above is what counts.
 
@@ -37,8 +37,8 @@ gantt
     dateFormat YYYY-MM-DD
     axisFormat %b %Y
     section 1.21.11
-        Feature updates : 2026-10-12, 2026-10-24
-        Bug fixes       : active, 2026-10-12, 2027-01-24
+        Feature updates : 2026-10-12, 2026-10-26
+        Bug fixes       : active, 2026-10-12, 2027-01-26
     section 26.1
         Feature updates : 2026-10-19, 2026-12-01
         Bug fixes       : active, 2026-10-19, 2027-03-01
