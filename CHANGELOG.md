@@ -7,6 +7,13 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+## [0.6.0+26.1] - 2026-10-26
+
+Adds in-game configuration: operators can see and change every setting with
+`/cgp config` (with tab completion) instead of editing the config file, and
+turn on the stationary sorter with `/cgp accept-consequences`. Golem
+performance is unchanged from 0.5.0.
+
 ### Added
 - `/cgp config` to see and change settings in game: `list`, `get <setting>`,
   `set <setting> <value>` and `reset <setting>`. Changes apply at once, are
