@@ -86,7 +86,9 @@ For sorters where golems are deliberately trapped and never need to walk. Once a
 - `skipCrammingWhenStationary` skips entity pushing and cramming checks on ticks where the golem isn't trying to move.
 - Full physics still runs every `fullPhysicsTickInterval` ticks (default 20), so pistons, water, broken floors, and pushes are still picked up.
 
-This does change behavior. Stationary golems take much less cramming damage and don't get pushed apart by each other. It is fine for trapped-golem cells, but test it on a copy of your world first. It needs two flags:
+This does change behavior. Stationary golems take much less cramming damage and don't get pushed apart by each other. It is fine for trapped-golem cells, but test it on a copy of your world first.
+
+To turn it on in game, run `/cgp accept-consequences`, which explains what changes, then run it again within 60 seconds to confirm. After that, `/cgp config set stationarySorter.enabled true`. In the config file, it needs both flags:
 
 ```json
 "stationarySorter": {
@@ -104,6 +106,8 @@ This does change behavior. Stationary golems take much less cramming damage and 
 ## Config
 
 `config/copper_golem_mod.json` is created on first start. Missing options get their defaults, and the file is rewritten on every load so new options appear. If the file can't be parsed, the mod falls back to defaults and keeps the broken file as `copper_golem_mod.json.bad`.
+
+Operators can also change every setting in game with [`/cgp config`](#commands), without editing the file. Changes apply at once and are saved to the file.
 
 ```json
 {
@@ -134,7 +138,7 @@ This does change behavior. Stationary golems take much less cramming damage and 
 }
 ```
 
-`enabled: false` turns every optimization off at runtime (after `/cgp reload`) without removing the mod.
+`enabled: false` turns every optimization off at runtime (`/cgp config set enabled false`, or edit the file and run `/cgp reload`) without removing the mod.
 
 Upgrading from 0.1.x: the old `config/copper_golem_parallel.json` is no longer read and can be deleted.
 
@@ -146,11 +150,18 @@ Operator only (permission level 2):
 | --- | --- |
 | `/cgp status` | Current settings, golems ticked per server tick, stacks taken/placed per minute, and how often each optimization kicked in |
 | `/cgp reset` | Reset the counters |
-| `/cgp reload` | Reload the config file (stops a running benchmark) |
+| `/cgp config` | List every setting and its value. Changed settings are highlighted; hover a setting to see what it does, click it to fill in the command to change it |
+| `/cgp config get <setting>` | One setting's value, default and allowed values |
+| `/cgp config set <setting> <value>` | Change a setting. It applies at once, is saved to the config file, and is reported to other operators and the server log. Setting names and values tab-complete |
+| `/cgp config reset <setting>` | Put a setting back to its default |
+| `/cgp accept-consequences` | Accept that the [stationary sorter](#stationary-sorter-off-by-default-behavior-changing) changes golem behavior. Run it twice to confirm; it's needed before `stationarySorter.enabled` can be turned on |
+| `/cgp reload` | Reload the config file after editing it (stops a running benchmark) |
 | `/cgp profile on\|off` | Time every golem tick and report the average cost in `/cgp status` (adds a little overhead while on) |
 | `/cgp bench ab [minutes] [phaseSeconds]` | A/B benchmark: switches the mod on and off and compares them (default 10 min, 30 s phases) |
 | `/cgp bench current [minutes]` | Benchmark the current config as-is (default 5 min), e.g. to compare versions or other mods |
 | `/cgp bench status` / `stop` | Show progress / stop early and report what was measured |
+
+Settings use their path in the config file, e.g. `idleThrottle.sensorTickInterval`. They can't be changed while a benchmark is running, so the results always measure one config.
 
 ## Benchmarking
 
