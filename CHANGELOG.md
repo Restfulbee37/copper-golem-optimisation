@@ -7,6 +7,17 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+### Added
+- Settings screen: `/cgp config` now opens a screen with a switch, slider or
+  text box for every setting. It uses vanilla dialogs, so players don't need
+  the mod. Save applies and saves the changed settings by running
+  `/cgp config apply` as the player who pressed it, so the same permissions,
+  limits and logging apply. The stationary sorter only appears once its
+  consequences have been accepted. From the server console, `/cgp config`
+  still lists the settings, as does `/cgp config list`.
+- `/cgp config apply <setting>=<value> ...` changes several settings at once,
+  all or nothing.
+
 ## [0.6.0+26.3] - 2026-10-27
 
 First release for Minecraft 26.3, with the same features as 0.6.0 for the

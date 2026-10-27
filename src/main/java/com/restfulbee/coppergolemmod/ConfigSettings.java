@@ -155,4 +155,46 @@ public final class ConfigSettings {
     public static Setting get(String key) {
         return BY_KEY.get(key);
     }
+
+    /** Sets a value of the setting's own type (as returned by {@link Setting#get} or {@link #parse}). */
+    public static void setValue(Setting setting, CopperGolemModConfig config, Object value) {
+        switch (setting) {
+            case Switch toggle -> toggle.set(config, (Boolean) value);
+            case Whole whole -> whole.set(config, (Integer) value);
+            case Decimal decimal -> decimal.set(config, (Double) value);
+        }
+    }
+
+    /**
+     * Reads a value as typed in a command, e.g. {@code true}, {@code 6} or {@code 0.0025}.
+     *
+     * @throws IllegalArgumentException with a message for the player when the value isn't allowed
+     */
+    public static Object parse(Setting setting, String raw) {
+        String text = raw.trim();
+        try {
+            Object value = switch (setting) {
+                case Switch ignored -> switch (text) {
+                    case "true" -> Boolean.TRUE;
+                    case "false" -> Boolean.FALSE;
+                    default -> throw new NumberFormatException();
+                };
+                case Whole whole -> {
+                    int number = Integer.parseInt(text);
+                    yield number >= whole.min() && number <= whole.max() ? number : null;
+                }
+                case Decimal decimal -> {
+                    double number = Double.parseDouble(text);
+                    yield number >= decimal.min() && number <= decimal.max() ? number : null;
+                }
+            };
+            if (value != null) {
+                return value;
+            }
+        } catch (NumberFormatException ignored) {
+            // Reported below.
+        }
+        throw new IllegalArgumentException(setting.key() + " can't be " + (text.isEmpty() ? "empty" : "'" + text + "'")
+            + " (allowed: " + setting.allowed() + ")");
+    }
 }
