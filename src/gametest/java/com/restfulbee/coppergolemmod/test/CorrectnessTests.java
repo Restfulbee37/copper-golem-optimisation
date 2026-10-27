@@ -2,13 +2,25 @@ package com.restfulbee.coppergolemmod.test;
 
 import com.restfulbee.coppergolemmod.CopperGolemMod;
 import com.google.gson.JsonElement;
+import com.mojang.serialization.JsonOps;
 import com.google.gson.JsonParser;
+import com.restfulbee.coppergolemmod.ConfigScreen;
 import com.restfulbee.coppergolemmod.ConfigSettings;
 import com.restfulbee.coppergolemmod.CopperGolemModConfig;
 import com.restfulbee.coppergolemmod.GolemOptimizations;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.ByteTag;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.FloatTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.server.dialog.Dialog;
+import net.minecraft.server.dialog.Input;
+import net.minecraft.server.dialog.input.BooleanInput;
+import net.minecraft.server.dialog.input.NumberRangeInput;
+import net.minecraft.server.dialog.input.TextInput;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -390,7 +402,8 @@ public class CorrectnessTests {
             String fileBefore = CommandRunner.readConfigFile();
             op.run("cgp bench current 1");
             for (String command : List.of("cgp config set idleThrottle.sensorTickInterval 6",
-                "cgp config reset idleThrottle.sensorTickInterval", "cgp accept-consequences")) {
+                "cgp config reset idleThrottle.sensorTickInterval", "cgp config apply idleThrottle.sensorTickInterval=6",
+                "cgp accept-consequences")) {
                 helper.assertValueEqual(op.run(command), 0, "result of /" + command + " during a benchmark");
                 helper.assertTrue(op.replies().contains("benchmark is running"), "unexpected reply to /" + command + ": " + op.replies());
             }
@@ -398,6 +411,93 @@ public class CorrectnessTests {
             op.run("cgp bench stop");
         });
         helper.succeed();
+    }
+
+    @GameTest(environment = CONFIG_COMMANDS, structure = ARENA, maxTicks = 20)
+    public void configApplyChangesSeveralSettingsAtOnce(GameTestHelper helper) {
+        CommandRunner op = new CommandRunner(helper);
+        op.restoringConfig(() -> {
+            op.run("cgp config reset idleThrottle.sensorTickInterval");
+            op.run("cgp config reset behavior.golemsLookAtPlayers");
+            op.run("cgp config reset " + CONSENT);
+
+            helper.assertValueEqual(op.run("cgp config apply idleThrottle.sensorTickInterval=6 behavior.golemsLookAtPlayers=false"), 2, "settings changed");
+            helper.assertTrue(op.replies().contains("changed idleThrottle.sensorTickInterval 4 -> 6, behavior.golemsLookAtPlayers true -> false"),
+                "unexpected reply: " + op.replies());
+            helper.assertValueEqual(CopperGolemMod.config().idleThrottle.sensorTickInterval, 6, "sensorTickInterval in use");
+            helper.assertValueEqual(savedValue("behavior.golemsLookAtPlayers"), "false", "golemsLookAtPlayers in the config file");
+
+            // All or nothing: one bad value means nothing changes.
+            String fileBefore = CommandRunner.readConfigFile();
+            for (String command : List.of(
+                "cgp config apply idleThrottle.sensorTickInterval=8 metrics.logIntervalSeconds=99999",
+                "cgp config apply idleThrottle.sensorTickInterval=8 noSuchSetting=1",
+                "cgp config apply idleThrottle.sensorTickInterval=8 enabled",
+                "cgp config apply idleThrottle.sensorTickInterval=8 stationarySorter.enabled=true",
+                "cgp config apply " + CONSENT + "=true"
+            )) {
+                helper.assertValueEqual(op.run(command), 0, "result of /" + command);
+                helper.assertTrue(op.replies().startsWith("No settings were changed"), "unexpected reply to /" + command + ": " + op.replies());
+            }
+            helper.assertValueEqual(CommandRunner.readConfigFile(), fileBefore, "config file after refused apply commands");
+        });
+        helper.succeed();
+    }
+
+    @GameTest(environment = CONFIG_COMMANDS, structure = ARENA, maxTicks = 20)
+    public void settingsScreenSaveRunsTheConfigCommand(GameTestHelper helper) {
+        CommandRunner op = new CommandRunner(helper);
+        op.restoringConfig(() -> {
+            op.run("cgp config reset idleThrottle.sensorTickInterval");
+            op.run("cgp config reset behavior.golemsLookAtPlayers");
+            op.run("cgp config reset " + CONSENT);
+
+            Dialog screen = ConfigScreen.build(CopperGolemMod.config());
+            // The screen must survive vanilla's own validation, as it does when it's sent to a player.
+            var ops = helper.getLevel().registryAccess().createSerializationContext(JsonOps.INSTANCE);
+            Dialog.DIRECT_CODEC.parse(ops, Dialog.DIRECT_CODEC.encodeStart(ops, screen).getOrThrow()).getOrThrow();
+            List<String> keys = screen.common().inputs().stream().map(Input::key).toList();
+            helper.assertValueEqual(keys.size(), ConfigSettings.ALL.size() - 2, "settings on the screen before consent");
+            helper.assertTrue(!keys.contains(ConfigScreen.inputKey(ConfigSettings.STATIONARY_SORTER))
+                && !keys.contains(ConfigScreen.inputKey(ConfigSettings.STATIONARY_SORTER_CONSENT)), "the screen offers the stationary sorter before consent");
+
+            // Saving the screen untouched must change nothing: every value survives the trip through the screen.
+            CompoundTag values = untouchedScreenValues(screen);
+            String fileBefore = CommandRunner.readConfigFile();
+            op.saveSettingsScreen(values);
+            helper.assertTrue(op.replies().contains("No settings changed"), "unexpected reply: " + op.replies());
+            helper.assertValueEqual(CommandRunner.readConfigFile(), fileBefore, "config file after saving an untouched screen");
+
+            values.putFloat(ConfigScreen.inputKey(ConfigSettings.SENSOR_TICK_INTERVAL), 6.0F);
+            values.putBoolean(ConfigScreen.inputKey(ConfigSettings.GOLEMS_LOOK_AT_PLAYERS), false);
+            op.saveSettingsScreen(values);
+            helper.assertTrue(op.replies().contains("changed idleThrottle.sensorTickInterval 4 -> 6, behavior.golemsLookAtPlayers true -> false"),
+                "unexpected reply: " + op.replies());
+            helper.assertValueEqual(CopperGolemMod.config().idleThrottle.sensorTickInterval, 6, "sensorTickInterval in use");
+            helper.assertValueEqual(savedValue("idleThrottle.sensorTickInterval"), "6", "sensorTickInterval in the config file");
+
+            op.run("cgp accept-consequences");
+            op.run("cgp accept-consequences");
+            helper.assertTrue(ConfigScreen.build(CopperGolemMod.config()).common().inputs().stream()
+                .anyMatch(input -> input.key().equals(ConfigScreen.inputKey(ConfigSettings.STATIONARY_SORTER))),
+                "the screen doesn't offer the stationary sorter after consent");
+        });
+        helper.succeed();
+    }
+
+    /** What a player's game sends back when Save is pressed without changing anything. */
+    private static CompoundTag untouchedScreenValues(Dialog screen) {
+        CompoundTag values = new CompoundTag();
+        for (Input input : screen.common().inputs()) {
+            Tag value = switch (input.control()) {
+                case BooleanInput toggle -> ByteTag.valueOf(toggle.initial());
+                case NumberRangeInput slider -> FloatTag.valueOf(slider.rangeInfo().computeScaledValue(slider.rangeInfo().initialSliderValue()));
+                case TextInput text -> StringTag.valueOf(text.initial());
+                default -> throw new IllegalStateException("Unexpected control " + input.control());
+            };
+            values.put(input.key(), value);
+        }
+        return values;
     }
 
     /** A setting's value as written in the config file. */
