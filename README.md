@@ -2,8 +2,8 @@
 
 A Fabric mod that cuts the server tick cost of copper golems, especially in dense sorting farms, without changing how they sort.
 
-- Minecraft `26.2` (any 26.2.x), Fabric Loader `0.19.5`+, Fabric API `0.161.0+26.2`+, Java 25
-- Minecraft 26.1 and 1.21.11 have their own `+26.1` and `+1.21.11` releases, maintained on the `mc/26.1` and `mc/1.21.11` branches. See [Supported versions](#supported-versions) for which versions get updates and for how long.
+- Minecraft `26.3` (any 26.3.x), Fabric Loader `0.20.1`+, Fabric API `0.165.0+26.3`+, Java 25
+- Minecraft 26.2, 26.1 and 1.21.11 have their own `+26.2`, `+26.1` and `+1.21.11` releases, maintained on the `mc/26.2`, `mc/26.1` and `mc/1.21.11` branches. See [Supported versions](#supported-versions) for which versions get updates and for how long.
 - Server-side logic only. Clients don't need it, and it also works in singleplayer.
 
 ## Install
@@ -25,9 +25,9 @@ Every Minecraft release from 1.21.11 on gets its own build, even if a newer one 
 | Minecraft | Status | Releases | Branch |
 | --- | --- | --- | --- |
 | 26.4 | Pending: Minecraft 26.4 isn't released yet. Becomes the feature version once it's supported | | |
-| 26.3 | Planned: feature updates until 26.4 is supported, then bug fixes | | |
-| 26.2.x | **Feature updates** until 26.3 is supported, then bug fixes | `+26.2` | `main` |
-| 26.1.x | **Feature updates** until 26.3 is supported, then bug fixes | `+26.1` | `mc/26.1` |
+| 26.3.x | **Feature updates** until 26.4 is supported, then bug fixes | `+26.3` | `main` |
+| 26.2.x | **Bug fixes** for about 3 months after 26.3 is supported | `+26.2` | `mc/26.2` |
+| 26.1.x | **Bug fixes** for about 3 months after 26.3 is supported | `+26.1` | `mc/26.1` |
 | 1.21.11 | **Bug fixes** until about 26 January 2027 (0.6.0 was its last feature release) | `+1.21.11` | `mc/1.21.11` |
 
 The timeline below shows the same plan; the red line marks today. 26.4 is grey because Minecraft hasn't released it yet. Dates in the future are estimates, and the table above is what counts.

@@ -7,6 +7,10 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+### Changed
+- Ported to Minecraft 26.3 (Fabric API 0.165.0+26.3). Needs Fabric Loader
+  0.20.1 or newer. Builds for Minecraft 26.2 continue on the `mc/26.2` branch.
+
 ## [0.6.0+26.2] - 2026-10-26
 
 Adds in-game configuration: operators can see and change every setting with
