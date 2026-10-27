@@ -7,6 +7,18 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+## [0.6.0+26.3] - 2026-10-27
+
+First release for Minecraft 26.3, with the same features as 0.6.0 for the
+other versions. Needs Fabric Loader 0.20.1 or newer.
+
+Measured by the workload benchmark on the CI runner (a copy of a real
+865-golem farm), with the mod on: MSPT 176.0 → 128.8 ms (−27%) and golem time
+per tick 109.9 → 62.6 ms (−43%), with sorting speed unchanged.
+
+Minecraft 26.3 is now the version that gets new features. 26.2 and 26.1 get
+bug and crash fixes until about 27 January 2027.
+
 ### Changed
 - Ported to Minecraft 26.3 (Fabric API 0.165.0+26.3). Needs Fabric Loader
   0.20.1 or newer. Builds for Minecraft 26.2 continue on the `mc/26.2` branch.
