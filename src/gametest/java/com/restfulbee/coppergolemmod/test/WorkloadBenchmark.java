@@ -467,6 +467,9 @@ public class WorkloadBenchmark {
                 case GAIN -> notes.add(mspt);
                 case NO_GAIN -> failures.add(String.format(Locale.ROOT, "No measurable MSPT gain with the mod on (median %.2f vs %.2f ms; needs at least %.2f ms lower).",
                     on.msptMedian, off.msptMedian, WorkloadGate.requiredGain(off.msptMedian)));
+                case WORSE -> failures.add(String.format(Locale.ROOT, "MSPT was %.1f%% higher with the mod on (median %.2f vs %.2f ms)%s.",
+                    percentChange(off.msptMedian, on.msptMedian), on.msptMedian, off.msptMedian,
+                    stillDisturbed ? ", far more than a disturbed runner explains" : ""));
                 case INCONCLUSIVE -> warnings.add("No measurable MSPT gain, but phases were still disturbed after a repeat (another job on the machine?), "
                     + "so the MSPT result can't be trusted and isn't treated as a failure. " + mspt);
             }

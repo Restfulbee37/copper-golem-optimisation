@@ -11,14 +11,17 @@ import java.util.TreeSet;
  *
  * <p>The CI runner is shared with other jobs. When one of them runs at the same time, some game ticks take much longer
  * than the rest. A tick's median barely moves, but the mean jumps, so phases are compared by their median MSPT, and a
- * phase whose mean is well above its median is treated as disturbed: its on/off pair is run again. A disturbed run can
- * still pass, but can't fail on MSPT alone, because its numbers don't measure the mod.
+ * phase whose mean is well above its median is treated as disturbed: its on/off pair is run again. A run that is still
+ * disturbed can pass with a warning when the mod shows no gain, but never when the mod is clearly slower: medians stay
+ * reliable under spikes, so a mod-on median more than 10% above mod off always fails.
  */
 final class WorkloadGate {
     /** Undisturbed phases measured 1.00 to 1.04 times their median; disturbed ones 1.4 to 1.8. */
     static final double DISTURBED_MEAN_OVER_MEDIAN = 1.15D;
+    /** A mod-on median this much above mod off fails even in a disturbed run. */
+    static final double MUCH_WORSE = 1.10D;
 
-    enum Verdict { GAIN, NO_GAIN, INCONCLUSIVE }
+    enum Verdict { GAIN, NO_GAIN, WORSE, INCONCLUSIVE }
 
     /** One phase's MSPT, and which on/off pair it belongs to. */
     record Phase(int pair, double msptMean, double msptMedian) {
@@ -50,6 +53,9 @@ final class WorkloadGate {
     static Verdict mspt(double onMedian, double offMedian, boolean stillDisturbed) {
         if (onMedian <= offMedian - requiredGain(offMedian)) {
             return Verdict.GAIN;
+        }
+        if (onMedian > offMedian * MUCH_WORSE) {
+            return Verdict.WORSE;
         }
         return stillDisturbed ? Verdict.INCONCLUSIVE : Verdict.NO_GAIN;
     }

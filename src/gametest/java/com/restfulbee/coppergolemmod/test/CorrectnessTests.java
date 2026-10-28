@@ -520,6 +520,9 @@ public class CorrectnessTests {
         helper.assertValueEqual(WorkloadGate.mspt(128.8D, 176.0D, true), WorkloadGate.Verdict.GAIN, "clear gain in a disturbed run");
         helper.assertValueEqual(WorkloadGate.mspt(174.0D, 176.0D, false), WorkloadGate.Verdict.NO_GAIN, "no gain in a clean run");
         helper.assertValueEqual(WorkloadGate.mspt(174.0D, 176.0D, true), WorkloadGate.Verdict.INCONCLUSIVE, "no gain in a disturbed run");
+        helper.assertValueEqual(WorkloadGate.mspt(200.0D, 176.0D, true), WorkloadGate.Verdict.WORSE, "much slower in a disturbed run");
+        helper.assertValueEqual(WorkloadGate.mspt(200.0D, 176.0D, false), WorkloadGate.Verdict.WORSE, "much slower in a clean run");
+        helper.assertValueEqual(WorkloadGate.mspt(190.0D, 176.0D, true), WorkloadGate.Verdict.INCONCLUSIVE, "a little slower in a disturbed run");
         helper.succeed();
     }
 
