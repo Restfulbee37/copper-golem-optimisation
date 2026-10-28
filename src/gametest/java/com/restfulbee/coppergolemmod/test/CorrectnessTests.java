@@ -400,6 +400,29 @@ public class CorrectnessTests {
         helper.complete();
     }
 
+    // ---- Workload benchmark gate: medians, disturbed phases and when MSPT may fail (numbers from real CI runs) ----
+
+    @GameTest(environment = CONFIG_COMMANDS, structure = ARENA, maxTicks = 20)
+    public void workloadGateSpotsDisturbedPhases(TestContext helper) {
+        helper.assertTrue(!WorkloadGate.disturbed(129.50D, 128.49D) && !WorkloadGate.disturbed(193.02D, 186.29D), "clean phases counted as disturbed");
+        helper.assertTrue(WorkloadGate.disturbed(415.58D, 234.85D) && WorkloadGate.disturbed(201.12D, 140.92D), "disturbed phases not spotted");
+        helper.assertTrue(!WorkloadGate.disturbed(5.0D, 0.0D), "a phase without ticks counted as disturbed");
+        helper.assertEquals(java.util.Set.of(2), WorkloadGate.disturbedPairs(List.of(
+            new WorkloadGate.Phase(1, 126.47D, 125.75D), new WorkloadGate.Phase(1, 167.62D, 166.18D),
+            new WorkloadGate.Phase(2, 265.45D, 182.23D), new WorkloadGate.Phase(2, 201.12D, 140.92D))), "disturbed pairs");
+        helper.complete();
+    }
+
+    @GameTest(environment = CONFIG_COMMANDS, structure = ARENA, maxTicks = 20)
+    public void workloadGateOnlyFailsMsptOnCleanRuns(TestContext helper) {
+        helper.assertEquals(0.5D, WorkloadGate.requiredGain(10.0D), "minimum required gain");
+        helper.assertEquals(WorkloadGate.Verdict.GAIN, WorkloadGate.mspt(128.8D, 176.0D, false), "clear gain");
+        helper.assertEquals(WorkloadGate.Verdict.GAIN, WorkloadGate.mspt(128.8D, 176.0D, true), "clear gain in a disturbed run");
+        helper.assertEquals(WorkloadGate.Verdict.NO_GAIN, WorkloadGate.mspt(174.0D, 176.0D, false), "no gain in a clean run");
+        helper.assertEquals(WorkloadGate.Verdict.INCONCLUSIVE, WorkloadGate.mspt(174.0D, 176.0D, true), "no gain in a disturbed run");
+        helper.complete();
+    }
+
     /** A setting's value as written in the config file. */
     private static String savedValue(String key) {
         JsonElement value = JsonParser.parseString(CommandRunner.readConfigFile());
