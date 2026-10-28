@@ -7,6 +7,12 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+## [0.7.0+26.3] - 2026-10-28
+
+Adds a settings screen: `/cgp config` opens a screen with every setting, so
+operators can change them without typing commands. Players don't need the mod
+for it. Golem performance is unchanged from 0.6.0.
+
 ### Added
 - Settings screen: `/cgp config` now opens a screen with a switch, slider or
   text box for every setting. It uses vanilla dialogs, so players don't need
