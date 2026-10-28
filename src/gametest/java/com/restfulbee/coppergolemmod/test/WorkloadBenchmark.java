@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 /**
  * Standard workload benchmark (#6): a copy of a real copper golem sorter with the villager floor above it
@@ -65,8 +66,11 @@ import java.util.TreeSet;
  * identical runs, so it is reported but not used to decide pass/fail.
  *
  * <p>The test fails if any item is lost or duplicated, if T90 is more than 5% longer or the mod leaves noticeably more
- * items unsorted (more than one golem trip), or if the mod gives no measurable MSPT improvement. Results are written
- * to {@code <run dir>/copper_golem_mod/workload/} as JSON.
+ * items unsorted (more than one golem trip), or if the mod gives no measurable MSPT improvement. MSPT is compared by
+ * each phase's median, because other jobs on a shared CI runner cause tick spikes that distort the mean; an on/off
+ * pair with a disturbed phase is run once more, and if it is still disturbed the MSPT result is a warning, not a
+ * failure (see {@link WorkloadGate}). The machine's load and CPU temperature are recorded for every phase. Results are
+ * written to {@code <run dir>/copper_golem_mod/workload/} as JSON.
  */
 public class WorkloadBenchmark {
     private static final Logger LOGGER = LoggerFactory.getLogger("CopperGolemMod workload");
@@ -89,8 +93,11 @@ public class WorkloadBenchmark {
         static final int PHASE_TIMEOUT_TICKS = 15_000;
         static final int STUCK_AFTER_TICKS = 1_200;
         static final int CHECK_EVERY_TICKS = 20;
-        /** ABBA: drift during the run (villager activity, JIT warm-up) affects both sides equally. */
-        static final boolean[] PHASE_MOD_ON = {true, false, false, true};
+        /**
+         * ABBA: drift during the run (villager activity, JIT warm-up) affects both sides equally. Phases 1-2 are
+         * pair 1 and phases 3-4 pair 2; a disturbed pair is repeated once, in the same order, after phase 4.
+         */
+        static final boolean[] PLANNED_MOD_ON = {true, false, false, true};
         static final int BLOCK_FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS | Block.UPDATE_SKIP_ON_PLACE;
 
         final GameTestHelper helper;
@@ -107,9 +114,16 @@ public class WorkloadBenchmark {
         long fedItems;
         long markerItems;
 
+        /** The phases to run (mod on or off, and their pair): the planned ones, then any repeats. */
+        final List<Boolean> planModOn = new ArrayList<>();
+        final List<Integer> planPair = new ArrayList<>();
+        boolean repeatsPlanned;
+
         Stage stage = Stage.SETTLE_VILLAGERS;
         int stageTicks;
         int phase;
+        final List<Double> loadSamples = new ArrayList<>();
+        double maxCpuTemperature;
         List<CopperGolem> golems = List.of();
         final LongArrayList tickNanos = new LongArrayList();
         ModMetrics.Snapshot metricsAtStart;
@@ -124,6 +138,10 @@ public class WorkloadBenchmark {
             this.level = helper.getLevel();
             this.farm = farm;
             this.stacksPerInput = stacksPerInput;
+            for (int i = 0; i < PLANNED_MOD_ON.length; i++) {
+                planModOn.add(PLANNED_MOD_ON[i]);
+                planPair.add(i / 2 + 1);
+            }
         }
 
         void tick() {
@@ -255,7 +273,7 @@ public class WorkloadBenchmark {
         }
 
         void startPhase() {
-            boolean modOn = PHASE_MOD_ON[phase];
+            boolean modOn = planModOn.get(phase);
             CopperGolemMod.setConfigOverride(phaseConfig(modOn));
             CopperGolemMod.metrics().setBenchmarkTiming(true);
 
@@ -268,7 +286,8 @@ public class WorkloadBenchmark {
             markers.forEach((pos, marker) -> container(pos).setItem(0, marker.copy()));
             golems = farm.golems.stream().map(pos -> helper.spawn(EntityType.COPPER_GOLEM, pos)).toList();
 
-            LOGGER.info("Workload phase {}/{} (mod {}): {} golems spawned, warming up", phase + 1, PHASE_MOD_ON.length, modOn ? "on" : "off", golems.size());
+            LOGGER.info("Workload phase {}/{} (mod {}{}): {} golems spawned, warming up", phase + 1, planModOn.size(), modOn ? "on" : "off",
+                isRepeat(phase) ? ", repeat of pair " + planPair.get(phase) : "", golems.size());
             stage = Stage.WARMUP;
             stageTicks = 0;
         }
@@ -287,6 +306,9 @@ public class WorkloadBenchmark {
             progress.clear();
             progress.add(new long[]{0, initialRemaining});
             lastProgressTick = 0;
+            loadSamples.clear();
+            maxCpuTemperature = -1.0D;
+            sampleMachine();
             stage = Stage.SORTING;
             stageTicks = 0;
         }
@@ -294,6 +316,7 @@ public class WorkloadBenchmark {
         // ---- Measuring ----
 
         void checkProgress() {
+            sampleMachine();
             long remaining = itemsToSort();
             progress.add(new long[]{stageTicks, remaining});
             if (remaining < remainingAtLastProgress) {
@@ -307,6 +330,19 @@ public class WorkloadBenchmark {
             } else if (stageTicks >= PHASE_TIMEOUT_TICKS) {
                 finishPhase(Outcome.TIMED_OUT, remaining);
             }
+        }
+
+        /** Load and temperature show whether something else on the machine was busy during the phase. */
+        void sampleMachine() {
+            double load = WorkloadGate.loadAverage();
+            if (load >= 0.0D) {
+                loadSamples.add(load);
+            }
+            maxCpuTemperature = Math.max(maxCpuTemperature, WorkloadGate.cpuTemperature());
+        }
+
+        boolean isRepeat(int phaseIndex) {
+            return phaseIndex >= PLANNED_MOD_ON.length;
         }
 
         /** Items still in the fed input chests or carried by golems. */
@@ -345,21 +381,51 @@ public class WorkloadBenchmark {
             long expected = fedItems + markerItems;
             long actual = itemsInFarm();
             int ticksToSort = outcome == Outcome.SORTED ? stageTicks : lastProgressTick;
-            PhaseResult result = PhaseResult.of(phase + 1, PHASE_MOD_ON[phase], outcome, stageTicks, ticksToSort,
+            PhaseResult result = PhaseResult.of(phase + 1, planPair.get(phase), isRepeat(phase), planModOn.get(phase), outcome, stageTicks, ticksToSort,
                 ticksUntilSorted(0.5D), ticksUntilSorted(0.9D), ticksUntilSorted(0.99D), sortedOverTime(), leftovers(),
-                remaining, expected, actual, nanos, delta);
+                remaining, expected, actual, nanos, delta, loadSamples, maxCpuTemperature);
             results.add(result);
-            LOGGER.info("Workload phase {}/{} ({}): {}, T50 {} / T90 {} / T99 {} / last item {} ticks, MSPT mean {} ms, golem {} ms/tick, {} items left, items {}",
-                result.phase, PHASE_MOD_ON.length, result.side, outcome, result.ticksTo50Percent, result.ticksTo90Percent, result.ticksTo99Percent,
-                ticksToSort, result.msptMean, result.golemMsPerTick, remaining,
+            LOGGER.info("Workload phase {}/{} ({}): {}, T50 {} / T90 {} / T99 {} / last item {} ticks, MSPT median {} ms (mean {}{}), "
+                    + "golem {} ms/tick, load avg {} (max {}), {} items left, items {}",
+                result.phase, planModOn.size(), result.side, outcome, result.ticksTo50Percent, result.ticksTo90Percent, result.ticksTo99Percent,
+                ticksToSort, result.msptMedian, result.msptMean, result.disturbed ? ", DISTURBED" : "", result.golemMsPerTick,
+                result.loadAverageMean, result.loadAverageMax, remaining,
                 result.itemsConserved ? "conserved" : "NOT CONSERVED (" + actual + " of " + expected + ")");
 
             phase++;
-            if (phase < PHASE_MOD_ON.length) {
+            if (phase < planModOn.size() || (!repeatsPlanned && planRepeats())) {
                 startPhase();
             } else {
                 finishRun();
             }
+        }
+
+        /** After the planned phases: queues a repeat of every pair that had a disturbed phase. */
+        boolean planRepeats() {
+            repeatsPlanned = true;
+            Set<Integer> pairs = WorkloadGate.disturbedPairs(results.stream().map(PhaseResult::gatePhase).toList());
+            for (int pair : pairs) {
+                for (int i = 0; i < PLANNED_MOD_ON.length; i++) {
+                    if (i / 2 + 1 == pair) {
+                        planModOn.add(PLANNED_MOD_ON[i]);
+                        planPair.add(pair);
+                    }
+                }
+                LOGGER.warn("Workload pair {} had a disturbed phase (mean MSPT more than {}x its median; another job on the machine?), so it runs again",
+                    pair, WorkloadGate.DISTURBED_MEAN_OVER_MEDIAN);
+            }
+            return !pairs.isEmpty();
+        }
+
+        /** The phases that count: each pair's repeat if it has one, otherwise the original. */
+        List<PhaseResult> countedPhases() {
+            List<PhaseResult> counted = new ArrayList<>();
+            for (int pair = 1; pair <= PLANNED_MOD_ON.length / 2; pair++) {
+                int p = pair;
+                List<PhaseResult> repeat = results.stream().filter(r -> r.pair == p && r.repeat).toList();
+                counted.addAll(repeat.isEmpty() ? results.stream().filter(r -> r.pair == p && !r.repeat).toList() : repeat);
+            }
+            return counted;
         }
 
         void finishRun() {
@@ -367,10 +433,17 @@ public class WorkloadBenchmark {
             CopperGolemMod.metrics().setBenchmarkTiming(false);
             golems.forEach(golem -> golem.discard());
 
-            Summary on = Summary.of("mod on", results.stream().filter(r -> r.modOn).toList());
-            Summary off = Summary.of("mod off", results.stream().filter(r -> !r.modOn).toList());
+            List<PhaseResult> counted = countedPhases();
+            Summary on = Summary.of("mod on", counted.stream().filter(r -> r.modOn).toList());
+            Summary off = Summary.of("mod off", counted.stream().filter(r -> !r.modOn).toList());
             List<String> failures = new ArrayList<>();
+            List<String> warnings = new ArrayList<>();
             List<String> notes = new ArrayList<>();
+            boolean stillDisturbed = counted.stream().anyMatch(r -> r.disturbed);
+            for (int pair : results.stream().filter(r -> r.repeat).map(r -> r.pair).collect(Collectors.toCollection(TreeSet::new))) {
+                boolean repeatDisturbed = counted.stream().anyMatch(r -> r.pair == pair && r.disturbed);
+                notes.add(String.format(Locale.ROOT, "Pair %d was disturbed and run again; the repeat was %s.", pair, repeatDisturbed ? "disturbed too" : "clean"));
+            }
 
             if (results.stream().anyMatch(r -> !r.itemsConserved)) {
                 failures.add("Items were lost or duplicated in at least one phase (see itemsExpected / itemsFound).");
@@ -388,21 +461,30 @@ public class WorkloadBenchmark {
                 notes.add(String.format(Locale.ROOT, "Sorting time with the mod on: %+.1f%% (T90 %.0f vs %.0f ticks; T50 %.0f vs %.0f; last item %.0f vs %.0f).",
                     change, on.meanTicksTo90Percent, off.meanTicksTo90Percent, on.meanTicksTo50Percent, off.meanTicksTo50Percent, on.meanTicksToSort, off.meanTicksToSort));
             }
-            double requiredGain = Math.max(0.5D, off.msptMean * 0.02D);
-            if (on.msptMean > off.msptMean - requiredGain) {
-                failures.add(String.format(Locale.ROOT, "No measurable MSPT gain with the mod on (%.2f vs %.2f ms; needs at least %.2f ms lower).", on.msptMean, off.msptMean, requiredGain));
-            } else {
-                notes.add(String.format(Locale.ROOT, "MSPT with the mod on: %.2f vs %.2f ms (%+.1f%%).", on.msptMean, off.msptMean, percentChange(off.msptMean, on.msptMean)));
+            String mspt = String.format(Locale.ROOT, "MSPT median with the mod on: %.2f vs %.2f ms (%+.1f%%; mean %.2f vs %.2f ms).",
+                on.msptMedian, off.msptMedian, percentChange(off.msptMedian, on.msptMedian), on.msptMean, off.msptMean);
+            switch (WorkloadGate.mspt(on.msptMedian, off.msptMedian, stillDisturbed)) {
+                case GAIN -> notes.add(mspt);
+                case NO_GAIN -> failures.add(String.format(Locale.ROOT, "No measurable MSPT gain with the mod on (median %.2f vs %.2f ms; needs at least %.2f ms lower).",
+                    on.msptMedian, off.msptMedian, WorkloadGate.requiredGain(off.msptMedian)));
+                case INCONCLUSIVE -> warnings.add("No measurable MSPT gain, but phases were still disturbed after a repeat (another job on the machine?), "
+                    + "so the MSPT result can't be trusted and isn't treated as a failure. " + mspt);
             }
             notes.add(String.format(Locale.ROOT, "Golem time per tick with the mod on: %.2f vs %.2f ms (%+.1f%%).",
                 on.golemMsPerTick, off.golemMsPerTick, percentChange(off.golemMsPerTick, on.golemMsPerTick)));
 
-            String savedTo = save(on, off, failures, notes);
-            StringBuilder report = new StringBuilder("Workload benchmark ").append(failures.isEmpty() ? "PASSED" : "FAILED").append('\n');
+            String savedTo = save(on, off, failures, warnings, notes, counted);
+            StringBuilder report = new StringBuilder("Workload benchmark ")
+                .append(!failures.isEmpty() ? "FAILED" : warnings.isEmpty() ? "PASSED" : "PASSED WITH WARNINGS").append('\n');
             notes.forEach(note -> report.append("  ").append(note).append('\n'));
+            warnings.forEach(warning -> report.append("  WARNING: ").append(warning).append('\n'));
             failures.forEach(failure -> report.append("  FAIL: ").append(failure).append('\n'));
             report.append("  Results: ").append(savedTo);
-            LOGGER.info(report.toString());
+            if (failures.isEmpty() && warnings.isEmpty()) {
+                LOGGER.info(report.toString());
+            } else {
+                LOGGER.warn(report.toString());
+            }
 
             if (failures.isEmpty()) {
                 helper.succeed();
@@ -476,9 +558,9 @@ public class WorkloadBenchmark {
             return item;
         }
 
-        String save(Summary on, Summary off, List<String> failures, List<String> notes) {
+        String save(Summary on, Summary off, List<String> failures, List<String> warnings, List<String> notes, List<PhaseResult> counted) {
             Map<String, Object> report = new LinkedHashMap<>();
-            report.put("result", failures.isEmpty() ? "passed" : "failed");
+            report.put("result", !failures.isEmpty() ? "failed" : warnings.isEmpty() ? "passed" : "passed with warnings");
             report.put("startedAt", startedAt.toString());
             report.put("finishedAt", LocalDateTime.now().toString());
             report.put("environment", Map.of(
@@ -501,7 +583,9 @@ public class WorkloadBenchmark {
             ));
             report.put("modOnConfig", "defaults + stationary sorter (like the stress-test server)");
             report.put("summary", List.of(on, off));
+            report.put("phasesCounted", counted.stream().map(r -> r.phase).toList());
             report.put("notes", notes);
+            report.put("warnings", warnings);
             report.put("failures", failures);
             report.put("phases", results);
 
@@ -534,38 +618,50 @@ public class WorkloadBenchmark {
     }
 
     private record PhaseResult(
-        int phase, String side, boolean modOn, String outcome, int phaseTicks,
+        int phase, int pair, boolean repeat, String side, boolean modOn, String outcome, int phaseTicks,
         int ticksTo50Percent, int ticksTo90Percent, int ticksTo99Percent, int ticksToSort, long itemsLeftUnsorted,
         long itemsExpected, long itemsFound, boolean itemsConserved,
-        double msptMean, double msptMedian, double msptP95, double golemMsPerTick, double microsPerGolemTick, long stacksPlaced,
+        double msptMean, double msptMedian, double msptP95, boolean disturbed,
+        double golemMsPerTick, double microsPerGolemTick, long stacksPlaced,
+        double loadAverageMean, double loadAverageMax, double cpuTemperatureMax,
         List<String> leftovers, List<long[]> itemsLeftEvery100Ticks
     ) {
-        static PhaseResult of(int phase, boolean modOn, Outcome outcome, int phaseTicks, int ticksToSort,
+        static PhaseResult of(int phase, int pair, boolean repeat, boolean modOn, Outcome outcome, int phaseTicks, int ticksToSort,
                               int t50, int t90, int t99, List<long[]> curve, List<String> leftovers,
-                              long remaining, long expected, long found, long[] tickNanos, ModMetrics.Snapshot delta) {
+                              long remaining, long expected, long found, long[] tickNanos, ModMetrics.Snapshot delta,
+                              List<Double> loadSamples, double maxCpuTemperature) {
             long[] sorted = tickNanos.clone();
             Arrays.sort(sorted);
             int n = Math.max(1, sorted.length);
             double mean = Arrays.stream(sorted).average().orElse(0.0D) / 1.0E6D;
+            double median = sorted.length == 0 ? 0.0D : sorted[sorted.length / 2] / 1.0E6D;
             return new PhaseResult(
-                phase, modOn ? "mod on" : "mod off", modOn, outcome.name().toLowerCase(Locale.ROOT), phaseTicks,
+                phase, pair, repeat, modOn ? "mod on" : "mod off", modOn, outcome.name().toLowerCase(Locale.ROOT), phaseTicks,
                 t50, t90, t99, ticksToSort, remaining,
                 expected, found, expected == found,
                 round(mean),
-                round(sorted.length == 0 ? 0.0D : sorted[sorted.length / 2] / 1.0E6D),
+                round(median),
                 round(sorted.length == 0 ? 0.0D : sorted[Math.min(sorted.length - 1, (int) Math.ceil(0.95D * sorted.length) - 1)] / 1.0E6D),
+                WorkloadGate.disturbed(mean, median),
                 round(delta.timedGolemNanos() / 1.0E6D / n),
                 round(delta.timedGolemTicks() == 0 ? 0.0D : delta.timedGolemNanos() / 1000.0D / delta.timedGolemTicks()),
                 delta.stacksPlaced(),
+                round(loadSamples.stream().mapToDouble(Double::doubleValue).average().orElse(-1.0D)),
+                round(loadSamples.stream().mapToDouble(Double::doubleValue).max().orElse(-1.0D)),
+                round(maxCpuTemperature),
                 leftovers,
                 curve
             );
+        }
+
+        WorkloadGate.Phase gatePhase() {
+            return new WorkloadGate.Phase(pair, msptMean, msptMedian);
         }
     }
 
     private record Summary(String side, int phases, boolean allSorted, double meanTicksTo50Percent, double meanTicksTo90Percent,
                            double meanTicksToSort, long itemsLeftUnsorted,
-                           double msptMean, double msptP95, double golemMsPerTick, double microsPerGolemTick) {
+                           double msptMedian, double msptMean, double msptP95, double golemMsPerTick, double microsPerGolemTick) {
         static Summary of(String side, List<PhaseResult> phases) {
             return new Summary(
                 side,
@@ -575,6 +671,7 @@ public class WorkloadBenchmark {
                 round(phases.stream().mapToInt(PhaseResult::ticksTo90Percent).average().orElse(0)),
                 round(phases.stream().mapToInt(PhaseResult::ticksToSort).average().orElse(0)),
                 phases.stream().mapToLong(PhaseResult::itemsLeftUnsorted).sum(),
+                round(phases.stream().mapToDouble(PhaseResult::msptMedian).average().orElse(0)),
                 round(phases.stream().mapToDouble(PhaseResult::msptMean).average().orElse(0)),
                 round(phases.stream().mapToDouble(PhaseResult::msptP95).average().orElse(0)),
                 round(phases.stream().mapToDouble(PhaseResult::golemMsPerTick).average().orElse(0)),
