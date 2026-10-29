@@ -7,13 +7,20 @@ Every pipeline runs three jobs. A merge request can only be merged when all thre
 | Job | What it checks | Typical time |
 | --- | --- | --- |
 | `build` | Compiles, runs the JUnit tests (benchmark logic, config loading) and builds the jar | a few minutes |
-| `gametest:correctness` | 13 in-game tests on a headless test server. Golems sort every item into the right chest (open area and trapped cell), look at nearby players, and keep vanilla timings, under the configs mod off, mod on, stationary sorter and look disabled. Also checks that the faster entity sort gives exactly vanilla's order. | a few minutes |
-| `gametest:workload` | The standard workload benchmark: a copy of the real stress-test farm (865 golems, 326 villagers, 774 chests) sorts a fixed item set four times, mod on, off, off, on. Fails if any item is lost or duplicated, if sorting is more than 5% slower (T90: time until 90% of items are sorted) or leaves more items unsorted with the mod on, or if the mod gives no measurable MSPT gain. | 10-60 min, depending on the machine |
+| `gametest:correctness` | 22 in-game tests on a headless test server. Golems sort every item into the right chest (open area and trapped cell), look at nearby players, and keep vanilla timings, under the configs mod off, mod on, stationary sorter and look disabled. Also checks that the faster entity sort gives exactly vanilla's order, that the `/cgp config` commands and the settings screen work, and the workload benchmark's MSPT rules. | a few minutes |
+| `gametest:workload` | The standard workload benchmark: a copy of the real stress-test farm (865 golems, 326 villagers, 774 chests) sorts a fixed item set four times, mod on, off, off, on. Fails if any item is lost or duplicated, if sorting is more than 5% slower (T90: time until 90% of items are sorted) or leaves more items unsorted with the mod on, or if the mod gives no measurable MSPT gain (see below). | 10-60 min, depending on the machine |
 
 Results:
 
 - Test results appear on each merge request and pipeline (the **Tests** tab).
-- The workload job keeps its report as a downloadable artifact (`build/run/gameTest/copper_golem_mod/workload/workload-*.json`) for 90 days: T50/T90/T99 sorting times and a sorting curve, MSPT mean/p95, golem cost, item counts and where any unsorted items ended up, for every phase, plus the verdict. It also records the machine (CPU count, memory) the numbers came from. Only compare numbers from the same machine.
+- The workload job keeps its report as a downloadable artifact (`build/run/gameTest/copper_golem_mod/workload/workload-*.json`) for 90 days: T50/T90/T99 sorting times and a sorting curve, MSPT median/mean/p95, golem cost, item counts and where any unsorted items ended up, for every phase, plus the verdict. It also records the machine (CPU count, memory) the numbers came from, and the machine's load average and CPU temperature during each phase. Only compare numbers from the same machine.
+
+How the workload judges MSPT, since the CI runner is shared with other projects' jobs:
+
+- Phases are compared by their **median** MSPT. When another job runs at the same time, some ticks get much slower; that pushes the mean up but barely moves the median.
+- A phase whose mean is more than 1.15 times its median is **disturbed** (clean phases measure 1.00 to 1.04). The on/off pair it belongs to (phases 1-2 or 3-4) runs once more, and the repeat counts instead.
+- If the repeat is disturbed too and the mod shows no MSPT gain, the job passes **with a warning** (`PASSED WITH WARNINGS` in the job log, `"result": "passed with warnings"` in the report), because those numbers don't measure the mod. The exception: if the mod-on median is more than 10% **higher** than mod off, it fails even then, since medians stay reliable under spikes and that is far more than a busy runner explains.
+- Lost or duplicated items and slower sorting are measured in game ticks, which other jobs don't affect, so they always fail.
 
 ### Running them locally
 
