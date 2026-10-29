@@ -21,6 +21,7 @@ import java.util.TreeSet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConfigSettingsTest {
@@ -115,6 +116,32 @@ class ConfigSettingsTest {
                     case ConfigSettings.Switch toggle -> toggle.defaultValue();
                 };
                 assertEquals(expected, setting.get(loaded), setting.key() + (tooHigh ? " above maximum" : " below minimum"));
+            }
+        }
+    }
+
+    /** What /cgp config apply (and so the settings screen) accepts must match the limits. */
+    @Test
+    void parseAcceptsExactlyTheAllowedValues() {
+        for (ConfigSettings.Setting setting : ConfigSettings.ALL) {
+            assertEquals(setting.defaultValue(), ConfigSettings.parse(setting, String.valueOf(setting.defaultValue())), setting.key());
+            List<String> rejected = new ArrayList<>(List.of("", "abc", "1=2"));
+            switch (setting) {
+                case ConfigSettings.Switch ignored -> rejected.addAll(List.of("yes", "1", "TRUE"));
+                case ConfigSettings.Whole whole -> {
+                    assertEquals(whole.min(), ConfigSettings.parse(whole, String.valueOf(whole.min())), whole.key());
+                    assertEquals(whole.max(), ConfigSettings.parse(whole, " " + whole.max() + " "), whole.key());
+                    rejected.addAll(List.of(String.valueOf(whole.min() - 1), String.valueOf(whole.max() + 1), "4.5"));
+                }
+                case ConfigSettings.Decimal decimal -> {
+                    assertEquals(decimal.max(), ConfigSettings.parse(decimal, String.valueOf(decimal.max())), decimal.key());
+                    rejected.addAll(List.of("-0.1", String.valueOf(decimal.max() + 0.5), "NaN"));
+                }
+            }
+            for (String value : rejected) {
+                IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> ConfigSettings.parse(setting, value),
+                    setting.key() + " accepted '" + value + "'");
+                assertTrue(error.getMessage().contains(setting.allowed()), error.getMessage());
             }
         }
     }

@@ -2,10 +2,12 @@ package com.restfulbee.coppergolemmod.test;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.Suggestion;
+import com.restfulbee.coppergolemmod.ConfigScreen;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 
@@ -16,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Runs commands as an operator, exactly as typed in game, and records the replies. Command feedback that is
@@ -55,6 +58,12 @@ final class CommandRunner implements CommandSource {
     private int execute(String command) throws CommandSyntaxException {
         replies.clear();
         return server.getCommands().getDispatcher().execute(command, source);
+    }
+
+    /** Presses Save on the settings screen with these values, as this operator. */
+    void saveSettingsScreen(CompoundTag values) {
+        replies.clear();
+        ConfigScreen.save(source, Optional.of(values.copy()));
     }
 
     /** What tab completion offers for a partly typed command, as the chat box would show it. */
