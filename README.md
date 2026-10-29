@@ -107,7 +107,7 @@ To turn it on in game, run `/cgp accept-consequences`, which explains what chang
 
 `config/copper_golem_mod.json` is created on first start. Missing options get their defaults, and the file is rewritten on every load so new options appear. If the file can't be parsed, the mod falls back to defaults and keeps the broken file as `copper_golem_mod.json.bad`.
 
-Operators can also change every setting in game with [`/cgp config`](#commands), without editing the file. Changes apply at once and are saved to the file.
+Operators can also change every setting in game without editing the file: [`/cgp config`](#commands) opens a settings screen, and there are chat commands too. Changes apply at once and are saved to the file.
 
 ```json
 {
@@ -150,10 +150,12 @@ Operator only (permission level 2):
 | --- | --- |
 | `/cgp status` | Current settings, golems ticked per server tick, stacks taken/placed per minute, and how often each optimization kicked in |
 | `/cgp reset` | Reset the counters |
-| `/cgp config` | List every setting and its value. Changed settings are highlighted; hover a setting to see what it does, click it to fill in the command to change it |
+| `/cgp config` | Opens the settings screen: switches, sliders and text boxes for every setting, applied and saved when you press Save. Players don't need the mod for it. From the server console it lists the settings instead |
+| `/cgp config list` | List every setting and its value. Changed settings are highlighted; hover a setting to see what it does, click it to fill in the command to change it |
 | `/cgp config get <setting>` | One setting's value, default and allowed values |
 | `/cgp config set <setting> <value>` | Change a setting. It applies at once, is saved to the config file, and is reported to other operators and the server log. Setting names and values tab-complete |
 | `/cgp config reset <setting>` | Put a setting back to its default |
+| `/cgp config apply <setting>=<value> ...` | Change several settings at once, all or nothing: if any value isn't allowed, nothing changes. This is what Save on the settings screen runs |
 | `/cgp accept-consequences` | Accept that the [stationary sorter](#stationary-sorter-off-by-default-behavior-changing) changes golem behavior. Run it twice to confirm; it's needed before `stationarySorter.enabled` can be turned on |
 | `/cgp reload` | Reload the config file after editing it (stops a running benchmark) |
 | `/cgp profile on\|off` | Time every golem tick and report the average cost in `/cgp status` (adds a little overhead while on) |
