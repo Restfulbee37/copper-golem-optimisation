@@ -16,6 +16,8 @@ public final class ModMetrics {
     private long lookScansRun;
     private long lookDisabled;
     private long sensorSortsOptimized;
+    private long chestInUseChecksOptimized;
+    private long chestsRuledOutEarly;
     private long idleSensorTicksSkipped;
     private long stationaryTravelSkipped;
     private long stationaryCrammingSkipped;
@@ -44,6 +46,8 @@ public final class ModMetrics {
         lookScansRun = 0;
         lookDisabled = 0;
         sensorSortsOptimized = 0;
+        chestInUseChecksOptimized = 0;
+        chestsRuledOutEarly = 0;
         idleSensorTicksSkipped = 0;
         stationaryTravelSkipped = 0;
         stationaryCrammingSkipped = 0;
@@ -88,6 +92,14 @@ public final class ModMetrics {
 
     public void sensorSortOptimized() {
         sensorSortsOptimized++;
+    }
+
+    public void chestInUseCheckOptimized() {
+        chestInUseChecksOptimized++;
+    }
+
+    public void chestRuledOutEarly() {
+        chestsRuledOutEarly++;
     }
 
     public void idleSensorTickSkipped() {
@@ -158,6 +170,8 @@ public final class ModMetrics {
         out.append("  enabled=").append(config.enabled)
             .append(", fastPlayerLookCheck=").append(config.optimizations.fastPlayerLookCheck)
             .append(", fastNearbyEntitySort=").append(config.optimizations.fastNearbyEntitySort)
+            .append(", fastChestInUseCheck=").append(config.optimizations.fastChestInUseCheck)
+            .append(", fastChestSearch=").append(config.optimizations.fastChestSearch)
             .append(", idleThrottle=").append(config.idleThrottle.enabled ? "every " + config.idleThrottle.sensorTickInterval + " ticks" : "off")
             .append(", stationarySorter=").append(config.isStationarySorterActive() ? "ON" : "off")
             .append(", golemsLookAtPlayers=").append(config.isPlayerLookDisabled() ? "off" : "on")
@@ -167,6 +181,8 @@ public final class ModMetrics {
             stacksTaken, stacksTaken / minutes, stacksPlaced, stacksPlaced / minutes));
         out.append(String.format(Locale.ROOT, "  player-look scans: %d skipped, %d run, %d disabled by config%n", lookScansSkipped, lookScansRun, lookDisabled));
         out.append(String.format(Locale.ROOT, "  nearby-entity sorts optimized: %d%n", sensorSortsOptimized));
+        out.append(String.format(Locale.ROOT, "  chest-in-use checks optimized: %d%n", chestInUseChecksOptimized));
+        out.append(String.format(Locale.ROOT, "  chests ruled out early in searches: %d%n", chestsRuledOutEarly));
         out.append(String.format(Locale.ROOT, "  idle sensor ticks skipped: %d%n", idleSensorTicksSkipped));
         out.append(String.format(Locale.ROOT, "  stationary: %d travel skipped, %d cramming skipped%n", stationaryTravelSkipped, stationaryCrammingSkipped));
         if (profiling) {

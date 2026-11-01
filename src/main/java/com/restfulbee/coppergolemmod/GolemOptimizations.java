@@ -1,9 +1,15 @@
 package com.restfulbee.coppergolemmod;
 
+import com.restfulbee.coppergolemmod.mixin.ChestBlockEntityAccessor;
+import com.restfulbee.coppergolemmod.mixin.ContainerOpenersCounterAccessor;
 import it.unimi.dsi.fastutil.ints.IntArrays;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.valueproviders.UniformInt;
+import net.minecraft.world.entity.ContainerUser;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.Brain;
@@ -11,20 +17,34 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.behavior.BehaviorControl;
 import net.minecraft.world.entity.ai.behavior.EntityTracker;
 import net.minecraft.world.entity.ai.behavior.SetEntityLookTargetSometimes;
+import net.minecraft.world.entity.ai.behavior.TransportItemsBetweenContainers.TransportItemTarget;
 import net.minecraft.world.entity.ai.behavior.declarative.BehaviorBuilder;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.memory.NearestVisibleLivingEntities;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.block.entity.ContainerOpenersCounter;
+import net.minecraft.world.level.block.entity.TrappedChestBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.phys.AABB;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
  * The actual optimizations. Everything here runs on the server thread as part of the normal golem tick.
  */
 public final class GolemOptimizations {
+    private static final EntityTypeTest<Entity, LivingEntity> LIVING_ENTITIES = EntityTypeTest.forClass(LivingEntity.class);
+
     private GolemOptimizations() {
     }
 
@@ -142,5 +162,110 @@ public final class GolemOptimizations {
         }
         CopperGolemMod.metrics().idleSensorTickSkipped();
         return true;
+    }
+
+    /**
+     * The copper golem's "should I queue for this chest?" predicate, unchanged. Wrapping it lets the item-moving behavior
+     * tell copper golems apart from any other mob using it, and answer the question with {@link #isChestInUse}.
+     */
+    public record ChestInUseCheck(Predicate<TransportItemTarget> vanilla) implements Predicate<TransportItemTarget> {
+        @Override
+        public boolean test(TransportItemTarget target) {
+            return vanilla.test(target);
+        }
+    }
+
+    public static boolean isFastChestInUseCheckOn() {
+        CopperGolemModConfig config = CopperGolemMod.config();
+        return config.enabled && config.optimizations.fastChestInUseCheck;
+    }
+
+    /**
+     * Same result as {@code TransportItemsBetweenContainers.isAnotherMobInteractingWithTarget} for a copper golem: true if
+     * anyone has this chest, or the other half of this double chest, open. Golems ask this every tick while they are close
+     * to their chest or queuing for it.
+     *
+     * <p>Vanilla first builds a target for the other half, which runs its blocked checks (including a scan for sitting
+     * cats), then lists every entity near each half and checks whether the list is empty. Here the golem's own half is
+     * checked first, the other half's target is only built once that half has a viewer (vanilla only checks the other
+     * half when its target can be built), and each search stops at the first viewer.
+     */
+    public static boolean isChestInUse(TransportItemTarget target, Level level) {
+        CopperGolemMod.metrics().chestInUseCheckOptimized();
+        if (hasViewer(target.blockEntity())) {
+            return true;
+        }
+        if (target.state().getValueOrElse(ChestBlock.TYPE, ChestType.SINGLE) == ChestType.SINGLE) {
+            return false;
+        }
+        BlockEntity otherHalf = level.getBlockEntity(ChestBlock.getConnectedBlockPos(target.pos(), target.state()));
+        return otherHalf != null && hasViewer(otherHalf) && TransportItemTarget.tryCreatePossibleTarget(otherHalf, level) != null;
+    }
+
+    /** Vanilla's copper golem predicate (is this a chest anyone has open?), stopping at the first viewer. */
+    private static boolean hasViewer(BlockEntity blockEntity) {
+        if (!(blockEntity instanceof ChestBlockEntity chest)) {
+            return false;
+        }
+        if (chest.getClass() != ChestBlockEntity.class && chest.getClass() != TrappedChestBlockEntity.class) {
+            // A modded chest may find its viewers differently, so ask it.
+            return !chest.getEntitiesWithContainerOpen().isEmpty();
+        }
+        // ContainerOpenersCounter.getEntitiesWithContainerOpen with the same box and test, but stopping at the first match.
+        // Every ContainerUser is a LivingEntity (ContainerUser.getLivingEntity requires it), so other entities are skipped.
+        ContainerOpenersCounter counter = ((ChestBlockEntityAccessor) chest).copperGolemMod$openersCounter();
+        BlockPos pos = chest.getBlockPos();
+        AABB searchBox = new AABB(pos).inflate(((ContainerOpenersCounterAccessor) counter).copperGolemMod$maxInteractionRange() + 4.0D);
+        return chest.getLevel().hasEntities(LIVING_ENTITIES, searchBox, entity -> entity instanceof ContainerUser user
+            && !user.getLivingEntity().isSpectator() && user.hasContainerOpen(counter, pos));
+    }
+
+    public static boolean isFastChestSearchOn() {
+        CopperGolemModConfig config = CopperGolemMod.config();
+        return config.enabled && config.optimizations.fastChestSearch;
+    }
+
+    /** What {@link #chestSearchShortcut} found out about a chest without building its target. */
+    public enum ChestSearchShortcut {
+        /** Vanilla returns null for this chest whatever its target would be. */
+        RULED_OUT,
+        /** Vanilla returns this chest's target, or null if it can't be built (e.g. a cat is sitting on the chest). */
+        TARGET_IF_BUILDABLE,
+        /** The other half of this double chest was visited; whether that counts depends on its target, so ask vanilla. */
+        ASK_VANILLA
+    }
+
+    /**
+     * For {@code TransportItemsBetweenContainers.isTargetValidToPick}, which a searching golem calls for every chest in
+     * range that is closer than the best one found so far.
+     *
+     * <p>Vanilla first builds the chest's target, which runs blocked checks on both halves (including a scan for sitting
+     * cats), and only then checks that the chest is the right kind, not visited and not locked. For a double chest it
+     * also builds the other half's target, to check whether that half was visited. None of this has side effects, so
+     * running the cheap checks first gives the same answer: only chests that can actually be picked get their target
+     * built, and the other half's only when it was visited.
+     */
+    public static ChestSearchShortcut chestSearchShortcut(Level level, BlockEntity blockEntity, boolean wantedBlock,
+                                                          Set<GlobalPos> visited, Set<GlobalPos> unreachable, AABB searchArea) {
+        BlockPos pos = blockEntity.getBlockPos();
+        if (!searchArea.contains(pos.getX(), pos.getY(), pos.getZ())) {
+            return ChestSearchShortcut.RULED_OUT;
+        }
+        if (!wantedBlock || blockEntity instanceof BaseContainerBlockEntity container && container.isLocked()
+            || isVisited(level, pos, visited, unreachable)) {
+            CopperGolemMod.metrics().chestRuledOutEarly();
+            return ChestSearchShortcut.RULED_OUT;
+        }
+        BlockState state = blockEntity.getBlockState();
+        if (state.getValueOrElse(ChestBlock.TYPE, ChestType.SINGLE) != ChestType.SINGLE
+            && isVisited(level, ChestBlock.getConnectedBlockPos(pos, state), visited, unreachable)) {
+            return ChestSearchShortcut.ASK_VANILLA;
+        }
+        return ChestSearchShortcut.TARGET_IF_BUILDABLE;
+    }
+
+    private static boolean isVisited(Level level, BlockPos pos, Set<GlobalPos> visited, Set<GlobalPos> unreachable) {
+        GlobalPos globalPos = new GlobalPos(level.dimension(), pos);
+        return visited.contains(globalPos) || unreachable.contains(globalPos);
     }
 }

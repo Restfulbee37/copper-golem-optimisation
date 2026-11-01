@@ -1,18 +1,29 @@
 package com.restfulbee.coppergolemmod.test;
 
+import net.minecraft.advancements.criterion.ItemPredicate;
+import net.minecraft.advancements.criterion.MinMaxBounds;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.Container;
+import net.minecraft.world.LockCode;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.behavior.EntityTracker;
 import net.minecraft.world.entity.ai.behavior.PositionTracker;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.animal.feline.Cat;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.world.phys.Vec3;
 
 import java.lang.reflect.Field;
 import java.util.Optional;
@@ -47,6 +58,35 @@ final class TestSupport {
             container.setItem(slot, stacks[slot].copy());
         }
         return container;
+    }
+
+    /**
+     * Places one half of a double chest (or a single chest) facing north without updating its neighbours, so
+     * mismatched halves stay as placed. For a {@code LEFT} half, the other half goes one block east.
+     */
+    static void placeChestHalf(GameTestHelper helper, BlockPos relativePos, Block block, ChestType type) {
+        BlockState state = block.defaultBlockState().setValue(ChestBlock.FACING, Direction.NORTH).setValue(ChestBlock.TYPE, type);
+        helper.getLevel().setBlock(helper.absolutePos(relativePos), state, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+    }
+
+    /** A cat sitting on the chest at this (relative) position, which blocks the chest for golems. It has no AI, so it stays. */
+    static Cat sittingCat(GameTestHelper helper, BlockPos chestPos) {
+        Cat cat = helper.spawn(EntityType.CAT, new Vec3(chestPos.getX() + 0.5D, chestPos.getY() + 0.875D, chestPos.getZ() + 0.5D));
+        cat.setNoAi(true);
+        cat.setInSittingPose(true);
+        return cat;
+    }
+
+    /** Locks a chest (or any container block) with a lock no item matches. */
+    static void lock(GameTestHelper helper, BlockPos relativePos) {
+        try {
+            Field lockKey = BaseContainerBlockEntity.class.getDeclaredField("lockKey");
+            lockKey.setAccessible(true);
+            lockKey.set(helper.getLevel().getBlockEntity(helper.absolutePos(relativePos)),
+                new LockCode(ItemPredicate.Builder.item().withCount(MinMaxBounds.Ints.exactly(1000)).build()));
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Can't lock the container at " + relativePos, exception);
+        }
     }
 
     static int count(Container container, Item item) {
