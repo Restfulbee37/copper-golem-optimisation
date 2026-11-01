@@ -7,6 +7,15 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+## [0.7.0+26.2] - 2026-11-01
+
+Adds the settings screen from 0.7.0+26.3: `/cgp config` opens a screen with
+every setting, so operators can change them without typing commands. Players
+don't need the mod for it. Golem performance is unchanged from 0.6.0.
+
+Minecraft 26.2 keeps getting feature updates until about 1 December 2026, then
+bug fixes until about 1 March 2027.
+
 ### Added
 - Settings screen: `/cgp config` now opens a screen with a switch, slider or
   text box for every setting. It uses vanilla dialogs, so players don't need
