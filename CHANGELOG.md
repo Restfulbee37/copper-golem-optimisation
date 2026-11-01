@@ -7,6 +7,20 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+### Added
+- `optimizations.fastChestInUseCheck` (on by default, vanilla-identical):
+  golems near a chest ask every tick whether anyone is using it. The mod
+  gives the same yes or no as vanilla, but stops at the first viewer and only
+  looks at players and copper golems, and only checks a double chest's other
+  half for sitting cats when someone is using that half. Golems still wait
+  while a chest is in use.
+- `optimizations.fastChestSearch` (on by default, vanilla-identical): when a
+  golem searches for a chest, chests of the wrong kind, chests it has already
+  tried and locked chests are ruled out before their inventories are built.
+  The golem picks the same chest as in vanilla, and a cat on a chest still
+  blocks it.
+- `/cgp status` shows how often each of these kicked in.
+
 ## [0.7.0+26.3] - 2026-10-28
 
 Adds a settings screen: `/cgp config` opens a screen with every setting, so

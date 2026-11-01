@@ -59,7 +59,9 @@ In a farm with hundreds of copper golems packed together, most of the cost is no
 
 1. **Looking for players.** Every tick, each golem without a look target walks its whole list of nearby living entities (everything within 16 blocks) looking for a player within 6 blocks to stare at. With 1,800 golems packed together that's about 3.2 million checks per tick, and the answer is almost always "no player here". A crash report from a 1,800-golem test world showed the server thread stuck inside this scan (`SetEntityLookTargetSometimes` → `NearestVisibleLivingEntities.findClosest`) when the watchdog killed the server.
 2. **Sorting the nearby-entity list.** Once a second each golem collects every living entity within 16 blocks and sorts it by distance. Vanilla recomputes two distances on every comparison.
-3. **Physics and pushing.** Golems trapped in sorter cells still run full movement physics and push against each other every tick.
+3. **Asking whether a chest is in use.** Every tick, each golem close to its chest or waiting for it asks "is anyone using this chest?". Vanilla answers by listing every entity within 4 to 8.5 blocks of the chest (of both halves, for a double chest), when all the golem needs to know is whether there's at least one. For a double chest it also checks the other half for sitting cats first. In Spark profiles of an 864-golem farm this was about 5 ms per tick.
+4. **Searching for the next chest.** When a golem looks for a chest, vanilla builds an inventory for every chest within 32 blocks, including a check for sitting cats on each half, and only then checks whether the chest is the right kind or one the golem has already tried. In the same profiles this was about 4 ms per tick.
+5. **Physics and pushing.** Golems trapped in sorter cells still run full movement physics and push against each other every tick.
 
 ## What the mod does
 
@@ -71,6 +73,8 @@ These give exactly the same result as vanilla; they just compute it more cheaply
 | --- | --- |
 | `optimizations.fastPlayerLookCheck` | Before the player-look scan, checks whether any player in the world is within 6 blocks. If none is, the scan can't find anything, so it's skipped. If a player is close, the normal vanilla scan runs. |
 | `optimizations.fastNearbyEntitySort` | Computes each distance once and uses a stable sort, which gives the same list in the same order as vanilla. About 2× faster per sensor update. |
+| `optimizations.fastChestInUseCheck` | Answers "is anyone using this chest?" with the same yes or no as vanilla, but stops at the first viewer it finds and only looks at entities that can be viewers (players and copper golems). For a double chest, the other half's cat check only runs if someone is using that half, which is the only case where vanilla's answer depends on it. Golems still wait while a chest is in use. |
+| `optimizations.fastChestSearch` | When a golem searches for a chest, rules out chests of the wrong kind, chests it has already tried and locked chests before building their inventories. A double chest's other half is only checked if the golem has tried it. The golem picks the same chest as in vanilla, and a cat sitting on a chest still blocks it. |
 
 ### Idle throttle (on by default)
 
@@ -114,7 +118,9 @@ Operators can also change every setting in game without editing the file: [`/cgp
   "enabled": true,
   "optimizations": {
     "fastPlayerLookCheck": true,
-    "fastNearbyEntitySort": true
+    "fastNearbyEntitySort": true,
+    "fastChestInUseCheck": true,
+    "fastChestSearch": true
   },
   "idleThrottle": {
     "enabled": true,

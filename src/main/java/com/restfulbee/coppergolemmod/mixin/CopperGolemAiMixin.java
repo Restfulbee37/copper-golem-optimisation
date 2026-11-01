@@ -1,5 +1,6 @@
 package com.restfulbee.coppergolemmod.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.restfulbee.coppergolemmod.GolemOptimizations;
@@ -8,9 +9,12 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.behavior.BehaviorControl;
+import net.minecraft.world.entity.ai.behavior.TransportItemsBetweenContainers.TransportItemTarget;
 import net.minecraft.world.entity.animal.golem.CopperGolemAi;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+
+import java.util.function.Predicate;
 
 @Mixin(CopperGolemAi.class)
 public abstract class CopperGolemAiMixin {
@@ -31,5 +35,14 @@ public abstract class CopperGolemAiMixin {
             return original.call(type, maxDistance, interval);
         }
         return GolemOptimizations.createLookAtPlayerTask(maxDistance, interval);
+    }
+
+    /**
+     * Marks the copper golem's "should I queue for this chest?" check so the item-moving behavior can answer it more
+     * cheaply for copper golems. The predicate itself is unchanged. See {@link GolemOptimizations#isChestInUse}.
+     */
+    @ModifyReturnValue(method = "shouldQueueForTarget", at = @At("RETURN"))
+    private static Predicate<TransportItemTarget> copperGolemMod$markChestInUseCheck(Predicate<TransportItemTarget> original) {
+        return new GolemOptimizations.ChestInUseCheck(original);
     }
 }
