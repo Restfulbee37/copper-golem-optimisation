@@ -39,6 +39,16 @@ public final class CopperGolemModConfig {
         public boolean fastPlayerLookCheck = true;
         /** Sorts the nearby-entity sensor list with precomputed distances; the resulting order is identical. */
         public boolean fastNearbyEntitySort = true;
+        /**
+         * Golems near a chest ask every tick whether anyone is using it. Vanilla lists every entity near the chest
+         * to answer; this stops at the first viewer and only looks at entities that can be viewers.
+         */
+        public boolean fastChestInUseCheck = true;
+        /**
+         * When searching for a chest, rules out wrong-type, visited and locked chests before building their
+         * inventories (which includes a "is a cat sitting on it?" scan). The same chest is chosen.
+         */
+        public boolean fastChestSearch = true;
     }
 
     /** Throttling applied only while a golem is in its post-search cooldown (nothing to sort). */
