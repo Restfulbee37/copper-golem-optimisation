@@ -50,7 +50,7 @@ Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+26.1`.
    git tag -a "v0.2.0+26.1" -m "CopperGolemMod 0.2.0 for Minecraft 26.1"
    git push origin "v0.2.0+26.1"
    ```
-6. The tag pipeline checks that the tag matches the version, builds the jar, uploads it to the package registry and creates the GitLab Release with the changelog section as its notes and the milestone attached.
+6. The tag pipeline checks that the tag matches the version, builds the jar, uploads it to the package registry and creates the GitLab Release with the changelog section as its notes and the milestone attached. Then the `modrinth` job uploads the jar to Modrinth with the same notes, as a beta for 0.x and a release from 1.0.0 on. It only runs when the CI/CD variables `MODRINTH_PROJECT_ID` and `MODRINTH_TOKEN` are set (masked and protected). The notes go public there, so keep them free of private details. `MODRINTH_DRY_RUN=1 MODRINTH_PROJECT_ID=<id> tools/modrinth_upload.sh <jar> <version> <notes file>` shows what would be uploaded.
 7. Close the milestone.
 8. If a Minecraft version changed status (a new port, the last feature release for a version, or the end of its bug fixes), update [Supported versions](README.md#supported-versions) on `main`: the table, and the timeline with the real dates in place of estimates.
 
