@@ -1,6 +1,10 @@
-# CopperGolemMod
+# Copper Golem Optimisation
+
+<img src="docs/icon.png" alt="" width="96" align="right">
 
 A Fabric mod that cuts the server tick cost of copper golems, especially in dense sorting farms, without changing how they sort.
+
+**Download:** [Modrinth](https://modrinth.com/mod/copper-golem-optimisation) · **Report a bug or ask for a feature:** [Issues](https://github.com/Restfulbee37/copper-golem-optimisation/issues) · **Licence:** [MIT](LICENSE)
 
 - Minecraft `26.3` (any 26.3.x), Fabric Loader `0.20.1`+, Fabric API `0.165.0+26.3`+, Java 25
 - Minecraft 26.2, 26.1 and 1.21.11 have their own `+26.2`, `+26.1` and `+1.21.11` releases, maintained on the `mc/26.2`, `mc/26.1` and `mc/1.21.11` branches. See [Supported versions](#supported-versions) for which versions get updates and for how long.
@@ -8,8 +12,8 @@ A Fabric mod that cuts the server tick cost of copper golems, especially in dens
 
 ## Install
 
-1. Download `copper_golem_mod-<version>.jar` from the project's **Releases** page. Pick the release whose version ends in your Minecraft version (e.g. `0.2.0+26.1` is for Minecraft 26.1.x, `0.2.0+1.21.11` is for Minecraft 1.21.11).
-2. Put it in your server's `mods` folder alongside [Fabric API](https://modrinth.com/mod/fabric-api), and remove any older CopperGolemMod jar.
+1. Download the jar from [Modrinth](https://modrinth.com/mod/copper-golem-optimisation). Pick the version whose name ends in your Minecraft version (e.g. `1.0.0+26.1` is for Minecraft 26.1.x, `0.6.1+1.21.11` is for Minecraft 1.21.11).
+2. Put it in your server's `mods` folder alongside [Fabric API](https://modrinth.com/mod/fabric-api), and remove any older `copper_golem_mod` jar.
 3. Start the server. The defaults are safe; see [Config](#config) for options.
 
 Each release also has a `.sha256` file for checking the download.
@@ -218,6 +222,14 @@ Gradle runs on any installed JDK 17+ and downloads the JDK 25 that Minecraft 26.
 ```
 
 The jar is written to `build/libs/copper_golem_mod-<version>.jar`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, branches and the release process.
+
+## Contributing
+
+Bug reports, compatibility reports, ideas and pull requests are welcome on [GitHub](https://github.com/Restfulbee37/copper-golem-optimisation). [CONTRIBUTING.md](CONTRIBUTING.md) explains how to build the mod, run the tests and what a pull request needs.
+
+## Licence
+
+[MIT](LICENSE). You can use the mod on any server, include it in modpacks, and fork or reuse the code, as long as the licence and copyright notice stay with it.
 
 ## History
 

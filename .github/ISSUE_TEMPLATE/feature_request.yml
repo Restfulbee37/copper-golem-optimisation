@@ -1,0 +1,24 @@
+name: Feature request
+description: An idea, a new optimisation, or a setting you'd like to see.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would it help?
+      description: For a performance idea, a Spark profile or /cgp bench results showing where the time goes are very useful.
+  - type: dropdown
+    id: behavior
+    attributes:
+      label: Would it change how golems behave?
+      description: Optimisations that change behavior can still be added, but only as an option that is off by default.
+      options:
+        - "No, golems would behave exactly as in vanilla"
+        - "Yes, it changes behavior"
+        - "Not sure"
