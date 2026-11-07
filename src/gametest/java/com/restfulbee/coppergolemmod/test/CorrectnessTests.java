@@ -10,6 +10,7 @@ import com.restfulbee.coppergolemmod.CopperGolemModConfig;
 import com.restfulbee.coppergolemmod.GolemOptimizations;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.ByteTag;
 import net.minecraft.nbt.CompoundTag;
@@ -25,20 +26,35 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.behavior.TransportItemsBetweenContainers;
+import net.minecraft.world.entity.ai.behavior.TransportItemsBetweenContainers.TransportItemTarget;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.sensing.NearestLivingEntitySensor;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
+import net.minecraft.world.entity.animal.golem.CopperGolemAi;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * In-game correctness tests: the mod must not change what copper golems do, only how cheaply they do it.
@@ -235,6 +251,291 @@ public class CorrectnessTests {
             CopperGolemMod.setConfigOverride(testConfig);
         }
         helper.succeed();
+    }
+
+    // ---- Chests: golems wait while a chest is in use, and pick the same chest as vanilla ----
+
+    @GameTest(environment = MOD_OFF, structure = ARENA, maxTicks = 1200)
+    public void waitsWhileChestIsInUseModOff(GameTestHelper helper) {
+        waitsWhileChestIsInUse(helper);
+    }
+
+    @GameTest(environment = MOD_ON, structure = ARENA, maxTicks = 1200)
+    public void waitsWhileChestIsInUseModOn(GameTestHelper helper) {
+        waitsWhileChestIsInUse(helper);
+    }
+
+    /**
+     * A golem carrying cobblestone heads for the only chest that takes it while a player has that chest open. It must
+     * wait close to the chest without putting anything in, and deliver everything once the player closes it.
+     */
+    @SuppressWarnings("removal") // Mojang marks the mock-player helper for removal but has no replacement yet.
+    private static void waitsWhileChestIsInUse(GameTestHelper helper) {
+        TestSupport.floor(helper, ARENA_SIZE, ARENA_SIZE);
+        BlockPos chestPos = at(9, 1, 6);
+        Container chest = TestSupport.placeContainer(helper, chestPos, Blocks.CHEST, new ItemStack(Items.COBBLESTONE, 1));
+        CopperGolem golem = helper.spawn(EntityTypes.COPPER_GOLEM, at(3.5, 1, 6.5));
+        golem.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.COBBLESTONE, 8));
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        Vec3 playerPos = helper.absoluteVec(at(10.5, 1, 6.5));
+        player.snapTo(playerPos.x, playerPos.y, playerPos.z, 90.0F, 0.0F);
+        BlockPos absoluteChest = helper.absolutePos(chestPos);
+        player.openMenu(helper.getLevel().getBlockState(absoluteChest).getMenuProvider(helper.getLevel(), absoluteChest));
+
+        double[] closest = {Double.MAX_VALUE};
+        int[] itemsWhileOpen = {1};
+        helper.onEachTick(() -> {
+            if (helper.getTick() < 300) {
+                closest[0] = Math.min(closest[0], golem.position().distanceTo(Vec3.atBottomCenterOf(absoluteChest)));
+                itemsWhileOpen[0] = Math.max(itemsWhileOpen[0], TestSupport.countAll(chest));
+            }
+        });
+        helper.runAtTickTime(300, player::closeContainer);
+        helper.runAtTickTime(900, () -> {
+            // Remove the player before any assertion, so a failure can't leave it standing in later tests.
+            helper.getLevel().getServer().getPlayerList().remove(player);
+            helper.assertTrue(closest[0] < 4.0D, "the golem came no closer than " + closest[0] + " blocks to the chest while it was open");
+            helper.assertValueEqual(itemsWhileOpen[0], 1, "items in the chest while the player had it open");
+            helper.assertValueEqual(TestSupport.count(chest, Items.COBBLESTONE), 9, "cobblestone in the chest after it was closed");
+            helper.assertTrue(golem.getMainHandItem().isEmpty(), "the golem is still carrying " + golem.getMainHandItem());
+            helper.succeed();
+        });
+    }
+
+    @GameTest(environment = MOD_OFF, structure = ARENA, maxTicks = 1200)
+    public void skipsBlockedAndFullChestsModOff(GameTestHelper helper) {
+        skipsBlockedAndFullChests(helper);
+    }
+
+    @GameTest(environment = MOD_ON, structure = ARENA, maxTicks = 1200)
+    public void skipsBlockedAndFullChestsModOn(GameTestHelper helper) {
+        skipsBlockedAndFullChests(helper);
+    }
+
+    /**
+     * A golem carrying cobblestone, and three chests that could take it, nearest first: one with a cat sitting on it,
+     * one full of dirt, and one with cobblestone. Vanilla never picks the blocked chest, tries the full one, remembers
+     * it as visited and delivers to the last one.
+     */
+    private static void skipsBlockedAndFullChests(GameTestHelper helper) {
+        TestSupport.floor(helper, ARENA_SIZE, ARENA_SIZE);
+        BlockPos catChestPos = at(5, 1, 8);
+        Container catChest = TestSupport.placeContainer(helper, catChestPos, Blocks.CHEST, new ItemStack(Items.COBBLESTONE, 1));
+        TestSupport.sittingCat(helper, catChestPos);
+        BlockPos fullChestPos = at(8, 1, 4);
+        helper.setBlock(fullChestPos, Blocks.CHEST);
+        Container fullChest = TestSupport.container(helper, fullChestPos);
+        for (int slot = 0; slot < fullChest.getContainerSize(); slot++) {
+            fullChest.setItem(slot, new ItemStack(Items.DIRT, 64));
+        }
+        Container goodChest = TestSupport.placeContainer(helper, at(12, 1, 6), Blocks.CHEST, new ItemStack(Items.COBBLESTONE, 1));
+        CopperGolem golem = helper.spawn(EntityTypes.COPPER_GOLEM, at(2.5, 1, 6.5));
+        golem.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.COBBLESTONE, 8));
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(golem.getMainHandItem().isEmpty(), "the golem is still carrying " + golem.getMainHandItem());
+            helper.assertValueEqual(TestSupport.count(goodChest, Items.COBBLESTONE), 9, "cobblestone in the chest that takes it");
+            helper.assertValueEqual(TestSupport.countAll(catChest), 1, "items in the chest with a cat on it");
+            helper.assertValueEqual(TestSupport.countAll(fullChest), 64 * fullChest.getContainerSize(), "items in the full chest");
+        });
+    }
+
+    /**
+     * Asks "is anyone using this chest?" (TransportItemsBetweenContainers.isAnotherMobInteractingWithTarget) for single,
+     * double, trapped and copper chests, with the mod off and on, while players and golems use them from different
+     * distances and a cat blocks one half. The answers must be identical.
+     */
+    @SuppressWarnings("removal") // Mojang marks the mock-player helper for removal but has no replacement yet.
+    @GameTest(environment = MOD_ON, structure = ARENA, maxTicks = 20)
+    public void chestInUseCheckMatchesVanilla(GameTestHelper helper) throws ReflectiveOperationException {
+        TestSupport.floor(helper, ARENA_SIZE, ARENA_SIZE);
+        ServerLevel level = helper.getLevel();
+        BlockPos single = at(3, 1, 3);
+        BlockPos left = at(7, 1, 3);
+        BlockPos right = at(8, 1, 3);
+        helper.setBlock(single, Blocks.CHEST);
+        TestSupport.placeChestHalf(helper, left, Blocks.CHEST, ChestType.LEFT);
+        TestSupport.placeChestHalf(helper, right, Blocks.CHEST, ChestType.RIGHT);
+        helper.setBlock(at(3, 1, 9), Blocks.TRAPPED_CHEST);
+        helper.setBlock(at(7, 1, 9), Blocks.COPPER_CHEST.weathering().unaffected());
+        List<BlockPos> chests = List.of(single, left, right, at(3, 1, 9), at(7, 1, 9));
+
+        Method inUse = TransportItemsBetweenContainers.class.getDeclaredMethod("isAnotherMobInteractingWithTarget", TransportItemTarget.class, Level.class);
+        inUse.setAccessible(true);
+        TransportItemsBetweenContainers behavior = copperGolemTransportBehavior();
+        CopperGolemModConfig testConfig = CopperGolemMod.baseConfig();
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        try {
+            // The answer for each chest in `chests`, after checking that vanilla and the mod agree.
+            java.util.function.Function<String, List<Boolean>> ask = scenario -> {
+                List<Boolean> answers = new ArrayList<>();
+                for (BlockPos chest : chests) {
+                    BlockEntity blockEntity = level.getBlockEntity(helper.absolutePos(chest));
+                    TransportItemTarget target = new TransportItemTarget(blockEntity.getBlockPos(), (Container) blockEntity, blockEntity, blockEntity.getBlockState());
+                    try {
+                        CopperGolemMod.setConfigOverride(ModConfigEnvironment.config(false, false, true, true));
+                        boolean vanilla = (Boolean) inUse.invoke(behavior, target, level);
+                        CopperGolemMod.setConfigOverride(testConfig);
+                        boolean optimized = (Boolean) inUse.invoke(behavior, target, level);
+                        helper.assertValueEqual(optimized, vanilla, scenario + ": chest at " + chest + " in use");
+                        answers.add(vanilla);
+                    } catch (ReflectiveOperationException exception) {
+                        throw new IllegalStateException(exception);
+                    }
+                }
+                return answers;
+            };
+            helper.assertValueEqual(ask.apply("nobody"), List.of(false, false, false, false, false), "in use with nobody around");
+
+            placePlayer(helper, player, at(3.5, 1, 12.0));
+            openChest(helper, player, single);
+            helper.assertValueEqual(ask.apply("player 8 blocks away"), List.of(true, false, false, false, false), "in use with a player 8 blocks away");
+            placePlayer(helper, player, at(3.5, 1, 13.5));
+            helper.assertValueEqual(ask.apply("player 9.5 blocks away"), List.of(false, false, false, false, false), "in use with a player out of range");
+            player.closeContainer();
+
+            placePlayer(helper, player, at(7.5, 1, 1.5));
+            openChest(helper, player, left);
+            helper.assertValueEqual(ask.apply("player at the double chest"), List.of(false, true, true, false, false), "in use with the double chest open");
+            player.closeContainer();
+
+            // A golem using the right half from where only the right half's search reaches it.
+            CopperGolem golem = helper.spawn(EntityTypes.COPPER_GOLEM, at(13.0, 1, 3.5));
+            golem.setOpenedChestPos(helper.absolutePos(right));
+            helper.assertValueEqual(ask.apply("golem at the right half"), List.of(false, true, true, false, false), "in use by a golem at the right half");
+            // Vanilla doesn't check a blocked other half.
+            TestSupport.sittingCat(helper, right);
+            helper.assertValueEqual(ask.apply("cat on the right half"), List.of(false, false, true, false, false), "in use with a cat on the right half");
+        } finally {
+            helper.getLevel().getServer().getPlayerList().remove(player);
+            CopperGolemMod.setConfigOverride(testConfig);
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Runs a copper golem's chest check (TransportItemsBetweenContainers.isTargetValidToPick) on chests of every kind,
+     * blocked, locked, out of reach and half-broken, empty-handed and carrying items, with different chests visited or
+     * unreachable, with the mod off and on. The chest picked (or not) must be identical.
+     */
+    @GameTest(environment = MOD_ON, structure = ARENA, maxTicks = 20)
+    public void chestSearchMatchesVanilla(GameTestHelper helper) throws ReflectiveOperationException {
+        TestSupport.floor(helper, ARENA_SIZE, ARENA_SIZE);
+        ServerLevel level = helper.getLevel();
+        List<BlockPos> chests = new ArrayList<>();
+        BlockPos copper = at(2, 1, 2);
+        helper.setBlock(copper, Blocks.COPPER_CHEST.weathering().unaffected());
+        BlockPos copperLeft = at(2, 1, 4);
+        BlockPos copperRight = at(3, 1, 4);
+        TestSupport.placeChestHalf(helper, copperLeft, Blocks.COPPER_CHEST.weathering().unaffected(), ChestType.LEFT);
+        TestSupport.placeChestHalf(helper, copperRight, Blocks.COPPER_CHEST.weathering().unaffected(), ChestType.RIGHT);
+        BlockPos single = at(10, 1, 2);
+        helper.setBlock(single, Blocks.CHEST);
+        BlockPos left = at(2, 1, 10);
+        BlockPos right = at(3, 1, 10);
+        TestSupport.placeChestHalf(helper, left, Blocks.CHEST, ChestType.LEFT);
+        TestSupport.placeChestHalf(helper, right, Blocks.CHEST, ChestType.RIGHT);
+        BlockPos trapped = at(10, 1, 10);
+        helper.setBlock(trapped, Blocks.TRAPPED_CHEST);
+        BlockPos locked = at(6, 1, 12);
+        helper.setBlock(locked, Blocks.CHEST);
+        TestSupport.lock(helper, locked);
+        BlockPos coveredByStone = at(12, 1, 6);
+        helper.setBlock(coveredByStone, Blocks.CHEST);
+        helper.setBlock(coveredByStone.above(), Blocks.STONE);
+        BlockPos withCat = at(0, 1, 6);
+        helper.setBlock(withCat, Blocks.CHEST);
+        TestSupport.sittingCat(helper, withCat);
+        BlockPos catLeft = at(6, 1, 0);
+        BlockPos catRight = at(7, 1, 0);
+        TestSupport.placeChestHalf(helper, catLeft, Blocks.CHEST, ChestType.LEFT);
+        TestSupport.placeChestHalf(helper, catRight, Blocks.CHEST, ChestType.RIGHT);
+        TestSupport.sittingCat(helper, catRight);
+        // A half that claims to be a double chest next to a single chest, as a broken world might have.
+        BlockPos brokenLeft = at(12, 1, 12);
+        BlockPos besideBroken = at(13, 1, 12);
+        TestSupport.placeChestHalf(helper, besideBroken, Blocks.CHEST, ChestType.SINGLE);
+        TestSupport.placeChestHalf(helper, brokenLeft, Blocks.CHEST, ChestType.LEFT);
+        BlockPos tooHigh = at(4, 11, 4);
+        helper.setBlock(tooHigh, Blocks.CHEST);
+        chests.addAll(List.of(copper, copperLeft, copperRight, single, left, right, trapped, locked, coveredByStone,
+            withCat, catLeft, catRight, brokenLeft, besideBroken, tooHigh));
+
+        CopperGolem golem = helper.spawn(EntityTypes.COPPER_GOLEM, at(6.5, 1, 6.5));
+        Method validToPick = TransportItemsBetweenContainers.class.getDeclaredMethod("isTargetValidToPick",
+            PathfinderMob.class, Level.class, BlockEntity.class, Set.class, Set.class, AABB.class);
+        validToPick.setAccessible(true);
+        TransportItemsBetweenContainers behavior = copperGolemTransportBehavior();
+        AABB searchArea = new AABB(golem.blockPosition()).inflate(32, 8, 32);
+
+        List<List<BlockPos>> visitedSets = List.of(List.of(), List.of(single), List.of(left), List.of(right), List.of(copperRight),
+            List.of(catLeft), List.of(catRight), List.of(besideBroken), List.of(brokenLeft, trapped));
+        CopperGolemModConfig testConfig = CopperGolemMod.baseConfig();
+        int picked = 0;
+        int notPicked = 0;
+        try {
+            for (ItemStack hand : List.of(ItemStack.EMPTY, new ItemStack(Items.COBBLESTONE, 4))) {
+                golem.setItemSlot(EquipmentSlot.MAINHAND, hand.copy());
+                for (List<BlockPos> visitedSet : visitedSets) {
+                    for (boolean asUnreachable : List.of(false, true)) {
+                        Set<GlobalPos> marked = new HashSet<>();
+                        visitedSet.forEach(pos -> marked.add(new GlobalPos(level.dimension(), helper.absolutePos(pos))));
+                        Set<GlobalPos> visited = asUnreachable ? Set.of() : marked;
+                        Set<GlobalPos> unreachable = asUnreachable ? marked : Set.of();
+                        for (BlockPos chest : chests) {
+                            BlockEntity blockEntity = level.getBlockEntity(helper.absolutePos(chest));
+                            CopperGolemMod.setConfigOverride(ModConfigEnvironment.config(false, false, true, true));
+                            TransportItemTarget vanilla = (TransportItemTarget) validToPick.invoke(behavior, golem, level, blockEntity, visited, unreachable, searchArea);
+                            CopperGolemMod.setConfigOverride(testConfig);
+                            TransportItemTarget optimized = (TransportItemTarget) validToPick.invoke(behavior, golem, level, blockEntity, visited, unreachable, searchArea);
+                            String what = "chest at " + chest + " with " + (hand.isEmpty() ? "an empty hand" : "items in hand")
+                                + (asUnreachable ? ", unreachable " : ", visited ") + visitedSet;
+                            helper.assertValueEqual(optimized == null, vanilla == null, what + " picked");
+                            if (vanilla != null) {
+                                picked++;
+                                helper.assertTrue(optimized.blockEntity() == vanilla.blockEntity() && optimized.pos().equals(vanilla.pos())
+                                    && optimized.state() == vanilla.state() && optimized.container().getClass() == vanilla.container().getClass()
+                                    && optimized.container().getContainerSize() == vanilla.container().getContainerSize(), what + ": target differs from vanilla's");
+                            } else {
+                                notPicked++;
+                            }
+                        }
+                    }
+                }
+            }
+        } finally {
+            CopperGolemMod.setConfigOverride(testConfig);
+        }
+        helper.assertTrue(picked > 50 && notPicked > 50, "too few cases to compare: " + picked + " picked, " + notPicked + " not");
+        helper.succeed();
+    }
+
+    /** A copper golem's item-moving behavior, built from the same pieces vanilla uses (with the mod's mixins applied). */
+    @SuppressWarnings("unchecked")
+    private static TransportItemsBetweenContainers copperGolemTransportBehavior() throws ReflectiveOperationException {
+        Method shouldQueue = CopperGolemAi.class.getDeclaredMethod("shouldQueueForTarget");
+        shouldQueue.setAccessible(true);
+        Predicate<TransportItemTarget> queuePredicate = (Predicate<TransportItemTarget>) shouldQueue.invoke(null);
+        if (!(queuePredicate instanceof GolemOptimizations.ChestInUseCheck)) {
+            throw new IllegalStateException("CopperGolemAi.shouldQueueForTarget wasn't wrapped by the mod");
+        }
+        Field source = CopperGolemAi.class.getDeclaredField("TRANSPORT_ITEM_SOURCE_BLOCK");
+        Field destination = CopperGolemAi.class.getDeclaredField("TRANSPORT_ITEM_DESTINATION_BLOCK");
+        source.setAccessible(true);
+        destination.setAccessible(true);
+        return new TransportItemsBetweenContainers(1.0F, (Predicate<BlockState>) source.get(null), (Predicate<BlockState>) destination.get(null),
+            32, 8, Map.of(), body -> {
+        }, queuePredicate);
+    }
+
+    private static void placePlayer(GameTestHelper helper, ServerPlayer player, Vec3 relativePos) {
+        Vec3 pos = helper.absoluteVec(relativePos);
+        player.snapTo(pos.x, pos.y, pos.z, 0.0F, 0.0F);
+    }
+
+    private static void openChest(GameTestHelper helper, ServerPlayer player, BlockPos relativePos) {
+        BlockPos pos = helper.absolutePos(relativePos);
+        player.openMenu(helper.getLevel().getBlockState(pos).getMenuProvider(helper.getLevel(), pos));
     }
 
     // ---- Idle throttle: sensors are throttled, but the cooldown itself is not slowed ----
