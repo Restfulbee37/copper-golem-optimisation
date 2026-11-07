@@ -7,7 +7,7 @@ Every pipeline runs three jobs. A merge request can only be merged when all thre
 | Job | What it checks | Typical time |
 | --- | --- | --- |
 | `build` | Compiles, runs the JUnit tests (benchmark logic, config loading) and builds the jar | a few minutes |
-| `gametest:correctness` | 22 in-game tests on a headless test server. Golems sort every item into the right chest (open area and trapped cell), look at nearby players, and keep vanilla timings, under the configs mod off, mod on, stationary sorter and look disabled. Also checks that the faster entity sort gives exactly vanilla's order, that the `/cgp config` commands and the settings screen work, and the workload benchmark's MSPT rules. | a few minutes |
+| `gametest:correctness` | 28 in-game tests on a headless test server. Golems sort every item into the right chest (open area and trapped cell), wait while a chest is in use, skip chests that are blocked by a cat or already tried, look at nearby players, and keep vanilla timings, under the configs mod off, mod on, stationary sorter and look disabled. Also checks that the faster entity sort gives exactly vanilla's order, that the chest-in-use check and the chest search give exactly vanilla's answers, that the `/cgp config` commands and the settings screen work, and the workload benchmark's MSPT rules. | a few minutes |
 | `gametest:workload` | The standard workload benchmark: a copy of the real stress-test farm (865 golems, 326 villagers, 774 chests) sorts a fixed item set four times, mod on, off, off, on. Fails if any item is lost or duplicated, if sorting is more than 5% slower (T90: time until 90% of items are sorted) or leaves more items unsorted with the mod on, or if the mod gives no measurable MSPT gain (see below). | 10-60 min, depending on the machine |
 
 Results:
@@ -91,4 +91,4 @@ Test separately, only for designs where golems are trapped:
 
 ## Compatibility
 
-Test with and without Lithium. This mod replaces `NearestLivingEntitySensor.doTick` for copper golems only (when `fastNearbyEntitySort` is on). If another mod also changes that method, turn `fastNearbyEntitySort` off and compare.
+Test with and without Lithium. This mod replaces `NearestLivingEntitySensor.doTick` for copper golems only (when `fastNearbyEntitySort` is on), and wraps `TransportItemsBetweenContainers.isAnotherMobInteractingWithTarget` and `isTargetValidToPick` for copper golems (when `fastChestInUseCheck` and `fastChestSearch` are on). If another mod also changes one of those methods, turn the matching setting off and compare.

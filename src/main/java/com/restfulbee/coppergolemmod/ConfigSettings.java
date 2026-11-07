@@ -96,6 +96,12 @@ public final class ConfigSettings {
     public static final Switch FAST_NEARBY_ENTITY_SORT = new Switch("optimizations.fastNearbyEntitySort",
         "Sort the nearby-entity list with precomputed distances. Vanilla-identical.",
         c -> c.optimizations.fastNearbyEntitySort, (c, v) -> c.optimizations.fastNearbyEntitySort = v);
+    public static final Switch FAST_CHEST_IN_USE_CHECK = new Switch("optimizations.fastChestInUseCheck",
+        "Answer \"is anyone using this chest?\" by stopping at the first viewer. Vanilla-identical.",
+        c -> c.optimizations.fastChestInUseCheck, (c, v) -> c.optimizations.fastChestInUseCheck = v);
+    public static final Switch FAST_CHEST_SEARCH = new Switch("optimizations.fastChestSearch",
+        "Rule out wrong-type, visited and locked chests before building their inventories. Vanilla-identical.",
+        c -> c.optimizations.fastChestSearch, (c, v) -> c.optimizations.fastChestSearch = v);
     public static final Switch IDLE_THROTTLE = new Switch("idleThrottle.enabled",
         "Run the sensors of golems with nothing to sort less often. Sorting speed is unchanged.",
         c -> c.idleThrottle.enabled, (c, v) -> c.idleThrottle.enabled = v);
@@ -134,7 +140,8 @@ public final class ConfigSettings {
 
     /** In the order they appear in the config file. */
     public static final List<Setting> ALL = List.of(
-        ENABLED, FAST_PLAYER_LOOK_CHECK, FAST_NEARBY_ENTITY_SORT, IDLE_THROTTLE, SENSOR_TICK_INTERVAL,
+        ENABLED, FAST_PLAYER_LOOK_CHECK, FAST_NEARBY_ENTITY_SORT, FAST_CHEST_IN_USE_CHECK, FAST_CHEST_SEARCH,
+        IDLE_THROTTLE, SENSOR_TICK_INTERVAL,
         STATIONARY_SORTER, STATIONARY_SORTER_CONSENT, MIN_STATIONARY_TICKS, SKIP_TRAVEL, SKIP_CRAMMING,
         FULL_PHYSICS_TICK_INTERVAL, MAX_HORIZONTAL_VELOCITY_SQUARED, GOLEMS_LOOK_AT_PLAYERS, LOG_INTERVAL_SECONDS
     );
