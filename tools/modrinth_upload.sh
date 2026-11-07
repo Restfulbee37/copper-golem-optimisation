@@ -4,8 +4,10 @@
 #
 # Usage: tools/modrinth_upload.sh <jar> <version, e.g. 1.0.0+26.3> <release notes file>
 #
-# Needs MODRINTH_PROJECT_ID and MODRINTH_TOKEN (a Modrinth personal access token with the "Create versions"
-# scope). With MODRINTH_DRY_RUN=1 it prints the version it would create and uploads nothing; no token needed.
+# Needs MODRINTH_PROJECT_ID and MODRINTH_TOKEN (a Modrinth personal access token with the scopes "Create
+# versions", "Read projects" and "Read versions"; the read scopes let it see the project while it is still a
+# draft awaiting review). With MODRINTH_DRY_RUN=1 it prints the version it would create and uploads nothing; it
+# then needs no token, but can only check public projects.
 # MODRINTH_API_URL can point at https://staging-api.modrinth.com/v2 for a test upload.
 #
 # Game versions: every Minecraft release Modrinth knows that the jar accepts, i.e. the version itself and its
@@ -28,8 +30,13 @@ fi
 test -f "$JAR" || { echo "No jar at $JAR"; exit 1; }
 grep -q '[^[:space:]]' "$NOTES_FILE" || { echo "The release notes in $NOTES_FILE are empty"; exit 1; }
 
+# Sends the token when there is one: a draft project (before Modrinth's review) is invisible without it.
 get() {
-    curl --fail --silent --show-error --user-agent "$USER_AGENT" "$API$1"
+    if [ -n "${MODRINTH_TOKEN:-}" ]; then
+        curl --fail --silent --show-error --user-agent "$USER_AGENT" --header "Authorization: $MODRINTH_TOKEN" "$API$1"
+    else
+        curl --fail --silent --show-error --user-agent "$USER_AGENT" "$API$1"
+    fi
 }
 
 # A re-run after a partial failure must not upload the same version twice.
