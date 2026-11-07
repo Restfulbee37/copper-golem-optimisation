@@ -1,7 +1,12 @@
 <!--
-Public text for the Modrinth project page. Everything below the line is pasted into the project's
-description; the summary goes in the "Summary" field. Keep it free of anything private: no GitLab links,
-branch names, runner details or personal names. Update the numbers and the version table on each release.
+Public text for the Modrinth project page. Everything below this comment is pasted into the project's
+description; the summary goes in the "Summary" field and docs/icon.png is the project icon. Keep it free of
+anything private: no GitLab links, runner details or personal names. Update the numbers and the version table
+on each release.
+
+Project settings: slug copper-golem-optimisation; client side "optional", server side "required"; categories
+Optimization and Utility; licence MIT; source https://github.com/Restfulbee37/copper-golem-optimisation;
+issues https://github.com/Restfulbee37/copper-golem-optimisation/issues.
 
 Summary (max 256 characters):
 Cuts the server lag of copper golems in big sorting farms. Golems sort exactly as in vanilla; the work behind it is just done more cheaply. Server-side, with an in-game settings screen.
@@ -88,3 +93,5 @@ Each Minecraft version gets its own download. New features come to the newest ve
 **Do my players need it?** No, it's server-side only.
 
 **Can I turn it off without removing it?** Yes: `/cgp config set enabled false`.
+
+**Is it open source?** Yes, under the MIT licence. The code, bug reports and pull requests are on [GitHub](https://github.com/Restfulbee37/copper-golem-optimisation). Bug reports and ideas are very welcome there.

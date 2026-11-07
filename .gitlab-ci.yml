@@ -1,4 +1,4 @@
-# CI/CD for CopperGolemMod
+# GitLab CI/CD for Copper Golem Optimisation (GitHub pull requests are checked by .github/workflows/ci.yml)
 #
 # Every commit and merge request:
 #   build                 compile, unit tests, jar (job artifact)
@@ -157,7 +157,7 @@ release:
     - |
       jq -n \
         --arg tag "$CI_COMMIT_TAG" \
-        --arg name "CopperGolemMod ${MILESTONE} for Minecraft ${MC_VERSION}" \
+        --arg name "Copper Golem Optimisation ${MILESTONE} for Minecraft ${MC_VERSION}" \
         --rawfile description release_notes.md \
         --arg milestone "$MILESTONE" \
         --arg jar "$JAR" \
