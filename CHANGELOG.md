@@ -7,13 +7,23 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+## [0.8.0+26.2] - 2026-11-07
+
+Copper golems check chests more cheaply, with the same results as vanilla:
+finding out whether a chest is in use, and picking the next chest to go to.
+Two new options control this, both on by default.
+
+Measured by the workload benchmark on the CI runner (a copy of a real
+865-golem farm), with the mod on: MSPT 179.3 → 112.0 ms (−38%) and golem time per
+tick 110.6 → 42.2 ms (−62%), with sorting speed unchanged.
+
 ### Added
 - `optimizations.fastChestInUseCheck` (on by default, vanilla-identical):
   golems near a chest ask every tick whether anyone is using it. The mod
-  gives the same yes or no as vanilla, but stops at the first viewer and only
-  looks at players and copper golems, and only checks a double chest's other
-  half for sitting cats when someone is using that half. Golems still wait
-  while a chest is in use.
+  gives the same yes or no as vanilla, but stops at the first viewer, skips
+  entities that aren't living, and only checks a double chest's other half
+  for sitting cats when someone is using that half. Golems still wait while
+  a chest is in use.
 - `optimizations.fastChestSearch` (on by default, vanilla-identical): when a
   golem searches for a chest, chests of the wrong kind, chests it has already
   tried and locked chests are ruled out before their inventories are built.
