@@ -73,7 +73,7 @@ These give exactly the same result as vanilla; they just compute it more cheaply
 | --- | --- |
 | `optimizations.fastPlayerLookCheck` | Before the player-look scan, checks whether any player in the world is within 6 blocks. If none is, the scan can't find anything, so it's skipped. If a player is close, the normal vanilla scan runs. |
 | `optimizations.fastNearbyEntitySort` | Computes each distance once and uses a stable sort, which gives the same list in the same order as vanilla. About 2× faster per sensor update. |
-| `optimizations.fastChestInUseCheck` | Answers "is anyone using this chest?" with the same yes or no as vanilla, but stops at the first viewer it finds and only looks at entities that can be viewers (players and copper golems). For a double chest, the other half's cat check only runs if someone is using that half, which is the only case where vanilla's answer depends on it. Golems still wait while a chest is in use. |
+| `optimizations.fastChestInUseCheck` | Answers "is anyone using this chest?" with the same yes or no as vanilla, but stops at the first viewer it finds and skips entities that aren't living. For a double chest, the other half's cat check only runs if someone is using that half, which is the only case where vanilla's answer depends on it. Golems still wait while a chest is in use. |
 | `optimizations.fastChestSearch` | When a golem searches for a chest, rules out chests of the wrong kind, chests it has already tried and locked chests before building their inventories. A double chest's other half is only checked if the golem has tried it. The golem picks the same chest as in vanilla, and a cat sitting on a chest still blocks it. |
 
 ### Idle throttle (on by default)

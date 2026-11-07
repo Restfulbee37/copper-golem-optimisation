@@ -41,7 +41,7 @@ public final class CopperGolemModConfig {
         public boolean fastNearbyEntitySort = true;
         /**
          * Golems near a chest ask every tick whether anyone is using it. Vanilla lists every entity near the chest
-         * to answer; this stops at the first viewer and only looks at entities that can be viewers.
+         * to answer; this stops at the first viewer and skips entities that aren't living.
          */
         public boolean fastChestInUseCheck = true;
         /**
