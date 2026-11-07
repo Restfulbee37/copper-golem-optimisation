@@ -203,8 +203,7 @@ Every commit is also checked automatically. In-game tests confirm golems still b
 
 ## Compatibility
 
-- **Lithium**: compatible and recommended. Tested with Lithium 0.21.4 on Minecraft 1.21.11: no mixin conflicts, every optimization stays active, and the improvements add up.
-  Not yet tested with Lithium on Minecraft 26.x; use `/cgp bench current` with and without it to check.
+- **Lithium**: compatible and recommended. Tested with Lithium 0.21.4 on Minecraft 1.21.11 (no mixin conflicts, every optimization stays active, and the improvements add up), and by hand on Minecraft 26.x.
 
 ## Versioning
 
