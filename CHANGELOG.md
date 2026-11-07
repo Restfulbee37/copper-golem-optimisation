@@ -7,6 +7,16 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+### Changed
+- The mod is now called **Copper Golem Optimisation** in mod lists and on
+  Modrinth. Its id, config file (`config/copper_golem_mod.json`), commands
+  and jar name are unchanged, so existing setups keep working.
+- Open source under the MIT licence. The code, issues and pull requests are on
+  GitHub: https://github.com/Restfulbee37/copper-golem-optimisation
+
+### Added
+- A mod icon, and links to the source code and issue tracker in the mod list.
+
 ## [0.8.0+26.1] - 2026-11-07
 
 Copper golems check chests more cheaply, with the same results as vanilla:
