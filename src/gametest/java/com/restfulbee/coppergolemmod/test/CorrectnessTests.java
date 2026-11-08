@@ -267,14 +267,16 @@ public class CorrectnessTests {
 
     /**
      * A golem carrying cobblestone heads for the only chest that takes it while a player has that chest open. It must
-     * wait close to the chest without putting anything in, and deliver everything once the player closes it.
+     * walk over and wait near the chest without putting anything in, and deliver everything once the player closes it.
+     * Vanilla starts waiting once the golem is within 3 blocks of the chest's outline on each axis, which can be up to
+     * about 5 blocks from the chest's centre when the golem stops diagonally, so it starts 8 blocks away.
      */
     @SuppressWarnings("removal") // Mojang marks the mock-player helper for removal but has no replacement yet.
     private static void waitsWhileChestIsInUse(GameTestHelper helper) {
         TestSupport.floor(helper, ARENA_SIZE, ARENA_SIZE);
         BlockPos chestPos = at(9, 1, 6);
         Container chest = TestSupport.placeContainer(helper, chestPos, Blocks.CHEST, new ItemStack(Items.COBBLESTONE, 1));
-        CopperGolem golem = helper.spawn(EntityTypes.COPPER_GOLEM, at(3.5, 1, 6.5));
+        CopperGolem golem = helper.spawn(EntityTypes.COPPER_GOLEM, at(1.5, 1, 6.5));
         golem.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.COBBLESTONE, 8));
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
         Vec3 playerPos = helper.absoluteVec(at(10.5, 1, 6.5));
@@ -294,7 +296,7 @@ public class CorrectnessTests {
         helper.runAtTickTime(900, () -> {
             // Remove the player before any assertion, so a failure can't leave it standing in later tests.
             helper.getLevel().getServer().getPlayerList().remove(player);
-            helper.assertTrue(closest[0] < 4.0D, "the golem came no closer than " + closest[0] + " blocks to the chest while it was open");
+            helper.assertTrue(closest[0] < 5.5D, "the golem came no closer than " + closest[0] + " blocks to the chest while it was open");
             helper.assertValueEqual(itemsWhileOpen[0], 1, "items in the chest while the player had it open");
             helper.assertValueEqual(TestSupport.count(chest, Items.COBBLESTONE), 9, "cobblestone in the chest after it was closed");
             helper.assertTrue(golem.getMainHandItem().isEmpty(), "the golem is still carrying " + golem.getMainHandItem());
