@@ -28,7 +28,7 @@ On a copy of a real 865-golem sorting farm, with the mod on:
 
 ## What it does
 
-Most of the cost in a dense golem farm isn't the sorting. It's the golems noticing each other and the chests around them. The mod answers the same questions vanilla asks, more cheaply. These are all on by default and give exactly vanilla's results:
+Most of the cost in a dense golem farm isn't the sorting. It's the golems noticing each other and the chests around them. The mod answers the same questions vanilla asks, more cheaply. These are all on by default, and golems sort exactly as in vanilla:
 
 - **Looking for players.** Golems scan every nearby mob each tick for a player to look at. When no player is close enough to be found, the scan is skipped.
 - **Sorting nearby mobs.** The once-a-second list of nearby mobs is sorted about twice as fast, in exactly the same order.
@@ -84,11 +84,11 @@ Each Minecraft version gets its own download. New features come to the newest ve
 | 26.3 | 1.0.0 | Feature updates until 26.4 is supported |
 | 26.2 | 1.0.0 | Feature updates until about December 2026, then bug fixes until about March 2027 |
 | 26.1 | 1.0.0 | Feature updates until about December 2026, then bug fixes until about March 2027 |
-| 1.21.11 | 0.6.0 | Bug fixes until about January 2027. No settings screen or chest optimisations |
+| 1.21.11 | 0.6.1 | Bug fixes until about January 2027. No settings screen or chest optimisations |
 
 ## FAQ
 
-**Does it change how my farm sorts?** No. Everything on by default gives vanilla's exact results, and the mod is tested on every build against vanilla, including a full copy of a real farm. Only the stationary sorter changes behaviour, and it's off unless you turn it on.
+**Does it change how my farm sorts?** No. With the default settings golems sort exactly as in vanilla, and the mod is tested on every build against vanilla, including a full copy of a real farm. The only visible difference is that idle golems notice players and mobs a moment later. The stationary sorter does change behaviour, and it's off unless you turn it on.
 
 **Do my players need it?** No, it's server-side only.
 
