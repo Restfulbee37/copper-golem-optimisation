@@ -1,8 +1,10 @@
-# CopperGolemMod testing
+# Testing Copper Golem Optimisation
 
 ## Automated tests (every commit)
 
-Every pipeline runs three jobs. A merge request can only be merged when all three pass, and a release tag is only published when all three pass.
+**Pull requests on GitHub** run `build` and `gametest:correctness` (below) with GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+**The maintainer's pipeline** runs all three jobs below, on every commit and on every pull request before it is merged. A change can only be merged when all three pass, and a release tag is only published when all three pass.
 
 | Job | What it checks | Typical time |
 | --- | --- | --- |

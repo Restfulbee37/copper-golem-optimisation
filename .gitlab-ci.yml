@@ -1,4 +1,4 @@
-# CI/CD for CopperGolemMod
+# GitLab CI/CD for Copper Golem Optimisation (GitHub pull requests are checked by .github/workflows/ci.yml)
 #
 # Every commit and merge request:
 #   build                 compile, unit tests, jar (job artifact)
@@ -6,7 +6,7 @@
 #   gametest:workload     standard workload benchmark on a copy of a real farm (mod on vs off)
 # Tags v<mod version>+<minecraft version>: additionally publish the jar to the package
 # registry and create a GitLab Release from the matching CHANGELOG.md section,
-# only if all of the above passed.
+# only if all of the above passed, then upload it to Modrinth once that is set up (see the modrinth job).
 # Release asset paths can't contain '+', so assets use fixed names, which also
 # gives a stable link: /-/releases/permalink/latest/downloads/copper_golem_mod.jar
 
@@ -157,7 +157,7 @@ release:
     - |
       jq -n \
         --arg tag "$CI_COMMIT_TAG" \
-        --arg name "CopperGolemMod ${MILESTONE} for Minecraft ${MC_VERSION}" \
+        --arg name "Copper Golem Optimisation ${MILESTONE} for Minecraft ${MC_VERSION}" \
         --rawfile description release_notes.md \
         --arg milestone "$MILESTONE" \
         --arg jar "$JAR" \
@@ -194,3 +194,25 @@ release:
         exit 1
       fi
       jq '{name, tag_name, url: ._links.self}' response.json
+
+# Uploads the jar to Modrinth after the GitLab release, on version tags only. Off until the project has the
+# CI/CD variables MODRINTH_PROJECT_ID and MODRINTH_TOKEN (masked and protected, so only protected v* tags see it).
+modrinth:
+  stage: publish
+  image: alpine:3
+  needs:
+    - job: build
+      artifacts: true
+    - job: release
+      artifacts: false
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/ && $MODRINTH_TOKEN && $MODRINTH_PROJECT_ID
+  script:
+    - apk add --no-cache curl jq
+    - |
+      awk -v heading="## [$MOD_VERSION]" '
+        index($0, heading) == 1 { found = 1; next }
+        found && /^## \[/ { exit }
+        found { print }
+      ' CHANGELOG.md > release_notes.md
+    - sh tools/modrinth_upload.sh "build/libs/${PACKAGE_NAME}-${MOD_VERSION}.jar" "$MOD_VERSION" release_notes.md

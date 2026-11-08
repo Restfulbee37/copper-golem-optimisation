@@ -2,13 +2,18 @@
   "schemaVersion": 1,
   "id": "copper_golem_mod",
   "version": "${version}",
-  "name": "CopperGolemMod",
-  "description": "Reduces the server tick cost of copper golems, especially in dense sorting farms, without changing how they sort.",
+  "name": "Copper Golem Optimisation",
+  "description": "Cuts the server lag of copper golems in big sorting farms. Golems sort exactly as in vanilla; the work behind it is just done more cheaply.",
   "authors": [
     "RestfulBee"
   ],
-  "contact": {},
-  "license": "All-Rights-Reserved",
+  "contact": {
+    "homepage": "https://github.com/Restfulbee37/copper-golem-optimisation",
+    "sources": "https://github.com/Restfulbee37/copper-golem-optimisation",
+    "issues": "https://github.com/Restfulbee37/copper-golem-optimisation/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/copper_golem_mod/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [
