@@ -7,6 +7,22 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+## [0.6.1+1.21.11] - 2026-11-08
+
+First public release for Minecraft 1.21.11. Copper Golem Optimisation is now
+open source under the MIT licence: the code, issues and pull requests are on
+GitHub, and downloads are on Modrinth. This build only changes the name,
+licence, icon and links; the mod works exactly like 0.6.0.
+
+The mod cuts the server tick cost of copper golems without changing how they
+sort. Measured by the workload benchmark on a copy of a real 865-golem sorting
+farm, with the mod on: MSPT 191.1 → 140.0 ms (−27%) and golem time per tick
+120.6 → 69.1 ms (−43%), with sorting speed unchanged.
+
+Minecraft 1.21.11 gets bug and crash fixes until about January 2027. The
+settings screen and the chest optimisations are only in the Minecraft 26.x
+versions.
+
 ### Changed
 - The mod is now called **Copper Golem Optimisation** in mod lists and on
   Modrinth. Its id, config file (`config/copper_golem_mod.json`), commands
