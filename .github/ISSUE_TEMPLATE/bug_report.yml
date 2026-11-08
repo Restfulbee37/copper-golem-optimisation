@@ -1,0 +1,48 @@
+name: Bug report
+description: Something breaks or crashes, or copper golems behave differently with the mod installed.
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can it be reproduced?
+      description: Steps, or a description of the farm (number of golems, chest layout). A world download or a schematic helps a lot.
+    validations:
+      required: true
+  - type: input
+    id: mod-version
+    attributes:
+      label: Mod version
+      description: The full version, e.g. 1.0.0+26.3 (shown in the mod list, or in the jar name).
+    validations:
+      required: true
+  - type: input
+    id: minecraft-version
+    attributes:
+      label: Minecraft, Fabric Loader and Fabric API versions
+      placeholder: Minecraft 26.3, Fabric Loader 0.20.1, Fabric API 0.165.0+26.3
+    validations:
+      required: true
+  - type: textarea
+    id: other-mods
+    attributes:
+      label: Other mods
+      description: Every other mod on the server, or "none". Lithium, other performance mods and anything that changes mobs matter most.
+  - type: textarea
+    id: status
+    attributes:
+      label: Output of /cgp status
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: Crash report or log
+      description: Paste it, or link to a paste site such as mclo.gs.
+      render: text
