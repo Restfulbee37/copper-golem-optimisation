@@ -77,7 +77,7 @@ Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+1.21.11`.
    git tag -a "v0.2.0+1.21.11" -m "Copper Golem Optimisation 0.2.0 for Minecraft 1.21.11"
    git push origin "v0.2.0+1.21.11"
    ```
-6. The tag pipeline checks that the tag matches the version, builds the jar, uploads it to the package registry and creates the GitLab Release with the changelog section as its notes and the milestone attached. Then the `modrinth` job uploads the jar to Modrinth with the same notes, as a beta for 0.x and a release from 1.0.0 on. It only runs when the CI/CD variables `MODRINTH_PROJECT_ID` and `MODRINTH_TOKEN` are set (masked and protected). The notes go public there, so keep them free of private details. `MODRINTH_DRY_RUN=1 MODRINTH_PROJECT_ID=<id> tools/modrinth_upload.sh <jar> <version> <notes file>` shows what would be uploaded.
+6. The tag pipeline checks that the tag matches the version, builds the jar, uploads it to the package registry and creates the GitLab Release with the changelog section as its notes and the milestone attached. Then the `modrinth` job uploads the jar to Modrinth with the same notes, as a full release. It only runs when the CI/CD variables `MODRINTH_PROJECT_ID` and `MODRINTH_TOKEN` are set (masked and protected). The notes go public there, so keep them free of private details. `MODRINTH_DRY_RUN=1 MODRINTH_PROJECT_ID=<id> tools/modrinth_upload.sh <jar> <version> <notes file>` shows what would be uploaded.
 7. Close the milestone.
 
 Tags matching `v*` are protected and can only be created by maintainers.
