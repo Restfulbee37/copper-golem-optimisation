@@ -7,6 +7,37 @@ build metadata (`<mod version>+<Minecraft version>`).
 
 ## [Unreleased]
 
+## [1.0.0+26.1] - 2026-11-08
+
+First public release. Copper Golem Optimisation is now open source under the
+MIT licence: the code, issues and pull requests are on GitHub, and downloads
+are on Modrinth.
+
+The mod cuts the server tick cost of copper golems without changing how they
+sort. Measured by the workload benchmark on a copy of a real 865-golem sorting
+farm, with the mod on: MSPT 167.0 → 99.4 ms (−40%) and golem time per tick
+102.4 → 34.7 ms (−66%), with sorting speed unchanged.
+
+What it includes (on by default unless marked opt-in; golems sort exactly as
+in vanilla with the defaults):
+- Golems skip their scan for a player to look at when no player is close
+  enough to be found.
+- The once-a-second list of nearby mobs is sorted about twice as fast.
+- "Is anyone using this chest?" stops at the first viewer.
+- Chests of the wrong kind, already tried or locked are ruled out before a
+  golem looks inside them.
+- Golems with nothing to sort run their senses less often while they wait.
+  They start sorting again on the same tick as in vanilla, but notice
+  players and mobs around them a moment later.
+- Opt-in: the stationary sorter skips physics for golems trapped in sorter
+  cells (changes behaviour; needs `/cgp accept-consequences`).
+- Opt-in: a switch to stop golems turning to look at players.
+- `/cgp config` opens a settings screen (players don't need the mod), plus
+  chat commands, `/cgp status` and the `/cgp bench` benchmark.
+
+From 1.0.0 on, versions follow Semantic Versioning: a new major version means
+a change you have to act on, such as a config change.
+
 ### Changed
 - The mod is now called **Copper Golem Optimisation** in mod lists and on
   Modrinth. Its id, config file (`config/copper_golem_mod.json`), commands
