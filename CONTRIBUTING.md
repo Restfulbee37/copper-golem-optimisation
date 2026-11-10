@@ -25,14 +25,14 @@ By contributing, you agree that your contribution is licensed under the project'
 
 ## Development setup
 
-Requirements: JDK 21. Everything else is downloaded by Gradle.
+Requirements: any JDK 17+ to start Gradle. Minecraft 26.x needs Java 25; Gradle downloads it automatically if it isn't installed (see `gradle/gradle-daemon-jvm.properties`). Everything else is downloaded by Gradle too.
 
 ```bash
 ./gradlew build        # builds build/libs/copper_golem_mod-<version>.jar and runs the tests
 ./gradlew test         # JUnit tests only (run inside a Fabric environment via fabric-loader-junit)
 ./gradlew runGameTest  # in-game tests and the workload benchmark (see TESTING.md)
 ./gradlew runServer    # dev server in ./run (accept the EULA in run/eula.txt first)
-./gradlew genSources   # decompiled, Yarn-mapped Minecraft sources for reading vanilla code
+./gradlew genSources   # decompiled Minecraft sources (official Mojang names) for reading vanilla code
 ```
 
 ## For maintainers
@@ -53,32 +53,33 @@ The rest of this file is the maintainer's process. The GitHub repository is a mi
 | Branch | Purpose |
 | --- | --- |
 | `main` | Development for the newest supported Minecraft version. Protected; always buildable. |
-| `mc/<minecraft version>` | Maintenance branch for an older Minecraft version, e.g. `mc/1.21.11`. Created when `main` moves to a new Minecraft version. |
+| `mc/<minecraft version>` | Maintenance branch for an older Minecraft version, e.g. `mc/1.21.11`. Created when `main` moves to a new Minecraft version. Gets bug fixes for as long as [Supported versions](README.md#supported-versions) says. |
 | `feature/<name>`, `fix/<name>` | Short-lived work branches, merged through a merge request. |
 
 Merge requests need a passing pipeline. Only `main`, `mc/*` and the version tags are mirrored to GitHub.
 
 ### Versioning
 
-Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+1.21.11`.
+Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+26.1`.
 
 - The mod version follows [Semantic Versioning](https://semver.org/): MAJOR for config or behavior changes that need user action, MINOR for new features or optimizations, PATCH for fixes.
-- The Minecraft version is build metadata. A port to a new Minecraft version with no other changes keeps the mod version: `0.2.0+1.21.11` becomes `0.2.0+1.22`.
-- Both parts live in `gradle.properties` (`mod_version`, `minecraft_version`). The jar name and `fabric.mod.json` are generated from them.
+- The Minecraft version is build metadata. A port to a new Minecraft version with no other changes keeps the mod version: `0.2.0+1.21.11` becomes `0.2.0+26.1`.
+- Both parts live in `gradle.properties` (`mod_version`, `minecraft_version`). The jar name and `fabric.mod.json` are generated from them. `minecraft_dependency` sets which Minecraft versions the jar accepts (e.g. `~26.1` for all of 26.1.x).
 
 ### Releasing
 
-1. Make sure the milestone for the version has no open issues.
+1. Make sure the milestone for the version (if it has one) has no open issues. The GitLab release is attached to the milestone named after the mod version, e.g. `1.0.0`; without one, it is created without a milestone.
 2. Update `gradle.properties` (`mod_version`, and the Minecraft/Fabric versions if they changed).
 3. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [<version>] - <YYYY-MM-DD>` and add a new empty `## [Unreleased]` above it. The heading must match the version exactly, because the pipeline copies that section into the release notes.
 4. Commit to `main` (or the `mc/*` branch) and wait for the pipeline to pass.
 5. Tag the commit `v<version>` and push the tag:
    ```bash
-   git tag -a "v0.2.0+1.21.11" -m "Copper Golem Optimisation 0.2.0 for Minecraft 1.21.11"
-   git push origin "v0.2.0+1.21.11"
+   git tag -a "v0.2.0+26.1" -m "Copper Golem Optimisation 0.2.0 for Minecraft 26.1"
+   git push origin "v0.2.0+26.1"
    ```
-6. The tag pipeline checks that the tag matches the version, builds the jar, uploads it to the package registry and creates the GitLab Release with the changelog section as its notes and the milestone attached. Then the `modrinth` job uploads the jar to Modrinth with the same notes, as a full release. It only runs when the CI/CD variables `MODRINTH_PROJECT_ID` and `MODRINTH_TOKEN` are set (masked and protected). The notes go public there, so keep them free of private details. `MODRINTH_DRY_RUN=1 MODRINTH_PROJECT_ID=<id> tools/modrinth_upload.sh <jar> <version> <notes file>` shows what would be uploaded.
+6. The tag pipeline checks that the tag matches the version, builds the jar, uploads it to the package registry and creates the GitLab Release with the changelog section as its notes and the milestone attached. Then the `modrinth` job uploads the jar to Modrinth with the same notes, as a full release with the environment "server-side only, works in singleplayer". It only runs when the CI/CD variables `MODRINTH_PROJECT_ID` and `MODRINTH_TOKEN` are set (masked and protected). The notes go public there, so keep them free of private details. `MODRINTH_DRY_RUN=1 MODRINTH_PROJECT_ID=<id> tools/modrinth_upload.sh <jar> <version> <notes file>` shows what would be uploaded.
 7. Close the milestone.
+8. If a Minecraft version changed status (a new port, the last feature release for a version, or the end of its bug fixes), update [Supported versions](README.md#supported-versions) on `main`: the table, and the timeline with the real dates in place of estimates.
 
 Tags matching `v*` are protected and can only be created by maintainers.
 
