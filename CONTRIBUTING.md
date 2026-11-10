@@ -68,7 +68,7 @@ Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+26.1`.
 
 ### Releasing
 
-1. Make sure the milestone for the version has no open issues.
+1. Make sure the milestone for the version (if it has one) has no open issues. The GitLab release is attached to the milestone named after the mod version, e.g. `1.0.0`; without one, it is created without a milestone.
 2. Update `gradle.properties` (`mod_version`, and the Minecraft/Fabric versions if they changed).
 3. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [<version>] - <YYYY-MM-DD>` and add a new empty `## [Unreleased]` above it. The heading must match the version exactly, because the pipeline copies that section into the release notes.
 4. Commit to `main` (or the `mc/*` branch) and wait for the pipeline to pass.
@@ -77,7 +77,7 @@ Versions are `<mod version>+<Minecraft version>`, for example `0.2.0+26.1`.
    git tag -a "v0.2.0+26.1" -m "Copper Golem Optimisation 0.2.0 for Minecraft 26.1"
    git push origin "v0.2.0+26.1"
    ```
-6. The tag pipeline checks that the tag matches the version, builds the jar, uploads it to the package registry and creates the GitLab Release with the changelog section as its notes and the milestone attached. Then the `modrinth` job uploads the jar to Modrinth with the same notes, as a beta for 0.x and a release from 1.0.0 on. It only runs when the CI/CD variables `MODRINTH_PROJECT_ID` and `MODRINTH_TOKEN` are set (masked and protected). The notes go public there, so keep them free of private details. `MODRINTH_DRY_RUN=1 MODRINTH_PROJECT_ID=<id> tools/modrinth_upload.sh <jar> <version> <notes file>` shows what would be uploaded.
+6. The tag pipeline checks that the tag matches the version, builds the jar, uploads it to the package registry and creates the GitLab Release with the changelog section as its notes and the milestone attached. Then the `modrinth` job uploads the jar to Modrinth with the same notes, as a full release with the environment "server-side only, works in singleplayer". It only runs when the CI/CD variables `MODRINTH_PROJECT_ID` and `MODRINTH_TOKEN` are set (masked and protected). The notes go public there, so keep them free of private details. `MODRINTH_DRY_RUN=1 MODRINTH_PROJECT_ID=<id> tools/modrinth_upload.sh <jar> <version> <notes file>` shows what would be uploaded.
 7. Close the milestone.
 8. If a Minecraft version changed status (a new port, the last feature release for a version, or the end of its bug fixes), update [Supported versions](README.md#supported-versions) on `main`: the table, and the timeline with the real dates in place of estimates.
 
