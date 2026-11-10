@@ -9,7 +9,8 @@
 # draft awaiting review). With MODRINTH_DRY_RUN=1 it prints the version it would create and uploads nothing; it
 # then needs no token, but can only check public projects.
 # MODRINTH_API_URL can point at https://staging-api.modrinth.com/v2 for a test upload. MODRINTH_VERSION_TYPE
-# (release, beta or alpha; default release) sets the channel.
+# (release, beta or alpha; default release) sets the channel, and MODRINTH_ENVIRONMENT (default server_only:
+# "server-side only, works in singleplayer") the environment Modrinth shows for the version.
 #
 # Game versions: every Minecraft release Modrinth knows that the jar accepts, i.e. the version itself and its
 # patch releases (26.3 -> 26.3, 26.3.1, ...). Patch releases that come out later can be added on Modrinth.
@@ -54,14 +55,17 @@ if [ "$GAME_VERSIONS" = "[]" ]; then
 fi
 FABRIC_API_ID="$(get /project/fabric-api | jq -r .id)"
 
-# Every upload is a full release. 1.21.11 stays on 0.6.x, and its builds are as finished as the 1.0.0 ones.
+# Every upload is a full release unless asked otherwise.
 VERSION_TYPE="${MODRINTH_VERSION_TYPE:-release}"
+# Modrinth stores the environment per version: players don't need the mod, and it also works in singleplayer.
+ENVIRONMENT="${MODRINTH_ENVIRONMENT:-server_only}"
 
 DATA="$(jq -n \
     --arg project "$MODRINTH_PROJECT_ID" \
     --arg name "$MOD_VERSION for Minecraft $MC_VERSION" \
     --arg version "$VERSION" \
     --arg type "$VERSION_TYPE" \
+    --arg environment "$ENVIRONMENT" \
     --rawfile changelog "$NOTES_FILE" \
     --argjson games "$GAME_VERSIONS" \
     --arg fabric_api "$FABRIC_API_ID" \
@@ -70,6 +74,7 @@ DATA="$(jq -n \
         name: $name,
         version_number: $version,
         version_type: $type,
+        environment: $environment,
         changelog: $changelog,
         game_versions: $games,
         loaders: ["fabric"],
