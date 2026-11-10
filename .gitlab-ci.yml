@@ -183,17 +183,27 @@ release:
         exit 0
       fi
     - |
-      status="$(curl --silent --show-error --output response.json --write-out '%{http_code}' \
-        --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
-        --header "Content-Type: application/json" \
-        --data @release.json \
-        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases")"
+      create_release() {
+        curl --silent --show-error --output response.json --write-out '%{http_code}' \
+          --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          --header "Content-Type: application/json" \
+          --data @release.json \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases"
+      }
+      status="$(create_release)"
+      # The release is attached to the milestone named after the version when there is one (e.g. 0.6.1).
+      # A patch release often has no milestone, and GitLab refuses the release then, so retry without it.
+      if [ "$status" != "201" ] && grep -qi 'milestone' response.json; then
+        echo "No milestone $MILESTONE: creating the release without one."
+        jq 'del(.milestones)' release.json > release_no_milestone.json && mv release_no_milestone.json release.json
+        status="$(create_release)"
+      fi
       if [ "$status" != "201" ]; then
         echo "Creating the release failed with HTTP $status:"
         cat response.json
         exit 1
       fi
-      jq '{name, tag_name, url: ._links.self}' response.json
+      jq '{name, tag_name, url: ._links.self, milestones: [.milestones[]?.title]}' response.json
 
 # Uploads the jar to Modrinth after the GitLab release, on version tags only. Off until the project has the
 # CI/CD variables MODRINTH_PROJECT_ID and MODRINTH_TOKEN (masked and protected, so only protected v* tags see it).
